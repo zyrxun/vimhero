@@ -11,6 +11,17 @@ import { store } from '../store'
 
 type Mode = 'normal' | 'insert' | 'visual' | 'visual-line' | 'unknown'
 
+/** Force the editor back to normal mode (drills must always start in movement mode). */
+function forceNormal(view: EditorView) {
+  const cm = getCM(view)
+  const v = cm?.state?.vim
+  if (cm && v && (v.insertMode || v.visualMode)) {
+    cm.cm6.contentDOM.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    )
+  }
+}
+
 function readMode(view: EditorView): Mode {
   const v = getCM(view)?.state?.vim
   if (!v) return 'unknown'
@@ -141,6 +152,7 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
       return Math.min(off + pos.ch, doc.length)
     }
     view.focus()
+    forceNormal(view)
     return () => { view.destroy(); viewRef.current = null }
   }, [editorKey])
 
@@ -162,6 +174,7 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     startRef.current = Date.now()
     setSolved(false)
     setElapsed(0)
+    forceNormal(view)
     view.focus()
   }
 

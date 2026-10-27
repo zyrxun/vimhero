@@ -12,7 +12,13 @@
   --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-* { box-sizing: border-box; }
+* { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--bg3) var(--bg); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 5px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--border); }
+::-webkit-scrollbar-corner { background: var(--bg); }
 
 html, body, #root { height: 100%; margin: 0; }
 
@@ -46,17 +52,18 @@ body {
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--dim);
-  padding: 14px 16px 4px;
+  padding: 20px 16px 8px;
 }
 .sidebar a {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  padding: 6px 16px;
+  padding: 9px 16px;
+  margin: 2px 0;
   color: var(--text);
   text-decoration: none;
-  font-size: 13.5px;
+  font-size: 14px;
   border-left: 3px solid transparent;
 }
 .sidebar a:hover { background: var(--bg3); }

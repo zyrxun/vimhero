@@ -2,6 +2,7 @@
 import assert from 'node:assert'
 import { normBuffer, cursorEq, checkTask } from '../src/engine.ts'
 import { sections, allLessons, allTasks } from '../src/lessons/index.ts'
+import { resolveTask } from '../src/lessons/types.ts'
 
 // ---------- engine ----------
 assert.equal(normBuffer('a  \nb\n\n'), 'a\nb')
@@ -37,18 +38,22 @@ for (const l of allLessons) {
     assert.ok(task.command.length > 0 && task.solution.length > 0, `${id}: command/solution`)
     assert.ok(task.parSeconds > 0, `${id}: par`)
 
-    const bufLines = task.buffer.split('\n')
-    const goalLines = task.goalBuffer.split('\n')
-    assert.ok(task.cursor.line < bufLines.length && task.cursor.ch <= bufLines[task.cursor.line].length,
-      `${id}: start cursor out of bounds`)
-    assert.ok(task.goalCursor.line < goalLines.length && task.goalCursor.ch <= goalLines[task.goalCursor.line].length,
-      `${id}: goal cursor out of bounds (${task.goalCursor.line}/${goalLines.length})`)
+    // roll every generator a few times: each variant must be internally consistent
+    const rolls = task.gen ? [0, 1, 2].map(() => resolveTask(task)) : [resolveTask(task)]
+    for (const t of rolls) {
+      const bufLines = t.buffer.split('\n')
+      const goalLines = t.goalBuffer.split('\n')
+      assert.ok(t.cursor.line < bufLines.length && t.cursor.ch <= bufLines[t.cursor.line].length,
+        `${id}: start cursor out of bounds`)
+      assert.ok(t.goalCursor.line < goalLines.length && t.goalCursor.ch <= goalLines[t.goalCursor.line].length,
+        `${id}: goal cursor out of bounds (${t.goalCursor.line}/${goalLines.length})`)
 
-    const changed = normBuffer(task.buffer) !== normBuffer(task.goalBuffer) ||
-      task.cursor.line !== task.goalCursor.line || task.cursor.ch !== task.goalCursor.ch
-    const noOpOk = task.command === 'modes' || task.command === '<C-d>'
-    assert.ok(changed || noOpOk,
-      `${id}: task is a no-op (goal == start)`)
+      const changed = normBuffer(t.buffer) !== normBuffer(t.goalBuffer) ||
+        t.cursor.line !== t.goalCursor.line || t.cursor.ch !== t.goalCursor.ch
+      const noOpOk = t.command === 'modes' || t.command === '<C-d>'
+      assert.ok(changed || noOpOk,
+        `${id}: task is a no-op (goal == start)`)
+    }
   }
 }
 

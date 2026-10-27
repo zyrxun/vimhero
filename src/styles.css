@@ -222,6 +222,12 @@ button.danger { color: var(--bad); }
 .drill-score { color: var(--dim); font-size: 14px; }
 .drill-score strong { color: var(--text); font-size: 18px; margin-left: 4px; }
 .start-btn { white-space: nowrap; }
+.hl-char {
+  background: #5b9bf52e;
+  color: #a8ccff;
+  outline: 1px solid var(--accent2);
+  border-radius: 2px;
+}
 .solution-reveal {
   padding: 8px 14px;
   border-top: 1px solid var(--border);

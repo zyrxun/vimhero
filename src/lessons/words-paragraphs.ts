@@ -1,4 +1,5 @@
 import type { Lesson } from './types'
+import { pickIdent, pickWord } from './variants.ts'
 
 // Section 7 — Text Objects: Words & Paragraphs. Original text and snippets.
 
@@ -12,11 +13,17 @@ export const wordsParagraphs: Lesson[] = [
 Note the asymmetry: on the space before a word, \`diw\` still grabs the word, not the space. Kill the typo word.`,
     tasks: [
       {
-        prompt: 'Delete the word `recieve` with `diw` (cursor is on the `i`).',
-        buffer: '// note: recieve is misspelled',
-        cursor: { line: 0, ch: 10 },
-        goalBuffer: '// note:  is misspelled',
-        goalCursor: { line: 0, ch: 8 },
+        prompt: 'Delete the misspelled word with `diw` (cursor is inside it).',
+        gen: () => {
+          const w = pickWord()
+          const buf = `// note: ${w} is misspelled`
+          return {
+            buffer: buf,
+            cursor: { line: 0, ch: 9 + Math.floor(w.length / 2) },
+            goalBuffer: '// note:  is misspelled',
+            goalCursor: { line: 0, ch: 8 },
+          }
+        },
         solution: 'diw',
         command: 'diw',
         parSeconds: 8,
@@ -32,11 +39,17 @@ Note the asymmetry: on the space before a word, \`diw\` still grabs the word, no
 This is the one for removing a word from a sentence.`,
     tasks: [
       {
-        prompt: 'Remove `very` cleanly with `daw` (no double spaces left behind).',
-        buffer: 'this is very important',
-        cursor: { line: 0, ch: 9 },
-        goalBuffer: 'this is important',
-        goalCursor: { line: 0, ch: 7 },
+        prompt: 'Remove the middle word cleanly with `daw` (no double spaces left behind).',
+        gen: () => {
+          const w = pickWord()
+          const buf = `this is ${w} important`
+          return {
+            buffer: buf,
+            cursor: { line: 0, ch: 8 + Math.floor(w.length / 2) },
+            goalBuffer: 'this is important',
+            goalCursor: { line: 0, ch: 7 },
+          }
+        },
         solution: 'daw',
         command: 'daw',
         parSeconds: 8,
@@ -52,11 +65,17 @@ This is the one for removing a word from a sentence.`,
 Rename the variable.`,
     tasks: [
       {
-        prompt: 'Rename `usr` to `user` with `ciw`, then `Esc`.',
-        buffer: 'const usr = getSession()',
-        cursor: { line: 0, ch: 6 },
-        goalBuffer: 'const user = getSession()',
-        goalCursor: { line: 0, ch: 9 },
+        prompt: 'Rename the identifier to `user` with `ciw`, then `Esc`.',
+        gen: () => {
+          const id = pickIdent()
+          const buf = `const ${id} = getSession()`
+          return {
+            buffer: buf,
+            cursor: { line: 0, ch: 6 + Math.floor(id.length / 2) },
+            goalBuffer: 'const user = getSession()',
+            goalCursor: { line: 0, ch: 9 },
+          }
+        },
         solution: 'ciwuser<Esc>',
         command: 'ciw',
         parSeconds: 18,

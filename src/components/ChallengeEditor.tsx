@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { EditorState } from '@codemirror/state'
-import { EditorView, keymap, lineNumbers } from '@codemirror/view'
+import { EditorState, StateEffect, StateField } from '@codemirror/state'
+import { EditorView, keymap, lineNumbers, Decoration } from '@codemirror/view'
+import type { DecorationSet } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { StreamLanguage, indentUnit } from '@codemirror/language'
 import { javascript } from '@codemirror/legacy-modes/mode/javascript'
 import { vim, getCM } from '@replit/codemirror-vim'
+import { resolveTask } from '../lessons/types'
 import type { Task } from '../lessons/types'
 import { checkTask } from '../engine'
 import { store } from '../store'
@@ -30,6 +32,64 @@ function readMode(view: EditorView): Mode {
   return 'normal'
 }
 
+// objective highlight: shows WHERE the edit lands / WHERE to move, cleared on solve
+const setHl = StateEffect.define<DecorationSet | null>()
+
+const hlField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(value, tr) {
+    let next = value.map(tr.changes)
+    for (const e of tr.effects) {
+      if (e.is(setHl)) next = e.value ?? Decoration.none
+    }
+    return next
+  },
+  provide: (f) => EditorView.decorations.from(f),
+})
+
+function hlDecoration(from: number, to: number): DecorationSet {
+  return Decoration.set([Decoration.mark({ class: 'hl-char' }).range(from, to)])
+}
+
+/**
+ * Where should the objective highlight sit? Derived from the buffer→goal diff:
+ * changed text = the region to edit; unchanged text = the destination position.
+ */
+function objectiveRange(buf: string, goal: string, goalCursor: { line: number; ch: number }): { from: number; to: number } {
+  const norm = (s: string) => s.replace(/[ \t]+$/gm, '').replace(/\n+$/, '')
+  if (norm(buf) === norm(goal)) {
+    // movement task: highlight the destination character
+    const lines = buf.split('\n')
+    let off = 0
+    for (let i = 0; i < goalCursor.line && i < lines.length; i++) off += lines[i].length + 1
+    const at = Math.max(0, Math.min(off + goalCursor.ch, buf.length - 1))
+    return { from: at, to: at + 1 }
+  }
+  let p = 0
+  while (p < buf.length && p < goal.length && buf[p] === goal[p]) p++
+  let s = 0
+  while (s < buf.length - p && s < goal.length - p && buf[buf.length - 1 - s] === goal[goal.length - 1 - s]) s++
+  if (p >= buf.length - s) {
+    // pure insertion — highlight the insertion point character
+    const at = Math.max(0, Math.min(p - 1, buf.length - 1))
+    return { from: at, to: at + 1 }
+  }
+  // expand the changed span to word-ish boundaries
+  let from = p
+  while (from > 0 && !/[ \t\n]/.test(buf[from - 1])) from--
+  let to = buf.length - s
+  while (to < buf.length && !/[ \t\n]/.test(buf[to])) to++
+  if (to <= from) to = from + 1
+  return { from, to }
+}
+
+function posToOffset(doc: string, pos: { line: number; ch: number }): number {
+  const lines = doc.split('\n')
+  let off = 0
+  for (let i = 0; i < pos.line && i < lines.length; i++) off += lines[i].length + 1
+  return Math.min(off + pos.ch, doc.length)
+}
+
 type Props = {
   task: Task
   /** stable key: changes reset the editor */
@@ -52,16 +112,27 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
   const statSlug = editorKey.slice(0, sep)
   const statIdx = Number(editorKey.slice(sep + 1))
   const everInsert = useRef(false)
-  // timer + validation stay cold until the user presses Start
+  // timer + validation stay cold until the user touches the editor
   const [armed, setArmed] = useState(false)
   const armedRef = useRef(false)
+  // concrete (possibly generated) task state for this mount
+  const resolved = useRef(resolveTask(task))
 
-  const start = () => {
+  const arm = () => {
     if (armedRef.current) return
     armedRef.current = true
+    ;(window as unknown as Record<string, unknown>).__armed = true
     setArmed(true)
     startRef.current = Date.now()
-    viewRef.current?.focus()
+    store.recordAttempt(task)
+  }
+
+  const complete = (ms: number) => {
+    solvedRef.current = true
+    setSolved(true)
+    setElapsed(ms)
+    if (record) store.recordSolve(statSlug, statIdx, resolved.current, ms)
+    onSolve(ms)
   }
 
   // scroll tasks (<C-d>) never change doc/selection — detect the key directly.
@@ -70,18 +141,24 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     const onKey = (e: KeyboardEvent) => {
       if (task.command !== '<C-d>' || solvedRef.current) return
       if (e.ctrlKey && e.key.toLowerCase() === 'd') {
-        solvedRef.current = true
-        setSolved(true)
-        const ms = Date.now() - startRef.current
-        setElapsed(ms)
-        if (record) store.recordSolve(statSlug, statIdx, task, ms)
-        onSolve(ms)
+        arm()
+        complete(Date.now() - startRef.current)
       }
     }
     const dom = host.current
-    dom?.addEventListener('keydown', onKey)
-    return () => dom?.removeEventListener('keydown', onKey)
-  }, [editorKey, task, record, statSlug, statIdx, onSolve])
+    // capture phase: CM6's vim layer stops propagation on handled keys,
+    // so bubble-phase listeners never see them
+    dom?.addEventListener('keydown', onKey, true)
+    return () => dom?.removeEventListener('keydown', onKey, true)
+  }, [editorKey, task, record, statSlug, statIdx])
+
+  // timer starts on the first attempt — a keypress anywhere in the editor
+  useEffect(() => {
+    const onKey = () => arm()
+    const dom = host.current
+    dom?.addEventListener('keydown', onKey, true)
+    return () => dom?.removeEventListener('keydown', onKey, true)
+  }, [editorKey])
 
   useEffect(() => {
     // reset everything when the task changes
@@ -94,13 +171,18 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     setShowSolution(false)
     setElapsed(0)
 
+    // roll a fresh variant (if the task has a generator)
+    resolved.current = resolveTask(task)
+    const t = resolved.current
+
     const view = new EditorView({
       parent: host.current!,
       state: EditorState.create({
-        doc: task.buffer,
-        selection: { anchor: posToOffset(task.buffer, task.cursor) },
+        doc: t.buffer,
+        selection: { anchor: posToOffset(t.buffer, t.cursor) },
         extensions: [
           vim(),
+          hlField,
           lineNumbers(),
           history(),
           keymap.of(defaultKeymap),
@@ -118,6 +200,7 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
             setMode(m)
             if (m === 'insert') everInsert.current = true
             if (solvedRef.current || !armedRef.current) return
+            const tt = resolved.current
             const text = u.state.doc.toString()
             const sel = u.state.selection.main
             let head = sel.head
@@ -127,43 +210,31 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
             if (v?.visualMode && head !== sel.anchor) head += head > sel.anchor ? -1 : 1
             const line = u.state.doc.lineAt(head)
             const cursor = { line: line.number - 1, ch: head - line.from }
-            const check = checkTask(text, cursor, task)
-
-            const complete = () => {
-              solvedRef.current = true
-              setSolved(true)
-              const ms = Date.now() - startRef.current
-              setElapsed(ms)
-              if (record) store.recordSolve(statSlug, statIdx, task, ms)
-              onSolve(ms)
-            }
+            const check = checkTask(text, cursor, tt)
 
             // no-op tasks (goal == start): the insert→normal round trip IS the task
-            const noOp = normEqual(task.buffer, task.goalBuffer) && samePos(task.cursor, task.goalCursor)
+            const noOp = normEqual(tt.buffer, tt.goalBuffer) && samePos(tt.cursor, tt.goalCursor)
             if (noOp) {
-              if (everInsert.current && m === 'normal') complete()
+              if (everInsert.current && m === 'normal') complete(Date.now() - startRef.current)
               return
             }
             // visual-LINE selections: the line span is the unit, cursor column is
             // meaningless — compare the selection's end line only
             if (v?.visualLine && v?.visualMode) {
-              if (cursor.line === task.goalCursor.line && check.textOk) complete()
+              if (cursor.line === tt.goalCursor.line && check.textOk) complete(Date.now() - startRef.current)
               return
             }
-            if (check.done) complete()
+            if (check.done) {
+              complete(Date.now() - startRef.current)
+              u.view.dispatch({ effects: setHl.of(null) })
+            }
           }),
         ],
       }),
     })
     viewRef.current = view
     ;(window as unknown as Record<string, unknown>).__vh = view
-    // eslint-disable-next-line no-inner-declarations
-    function posToOffset(doc: string, pos: { line: number; ch: number }): number {
-      const lines = doc.split('\n')
-      let off = 0
-      for (let i = 0; i < pos.line && i < lines.length; i++) off += lines[i].length + 1
-      return Math.min(off + pos.ch, doc.length)
-    }
+    view.dispatch({ effects: setHl.of(hlDecoration(...Object.values(objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)) as [number, number])) })
     view.focus()
     forceNormal(view)
     return () => { view.destroy(); viewRef.current = null }
@@ -174,14 +245,13 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
   const reset = () => {
     const view = viewRef.current
     if (!view) return
+    // re-roll the variant
+    resolved.current = resolveTask(task)
+    const t = resolved.current
     view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: task.buffer },
-      selection: { anchor: (() => {
-        const lines = task.buffer.split('\n')
-        let off = 0
-        for (let i = 0; i < task.cursor.line && i < lines.length; i++) off += lines[i].length + 1
-        return Math.min(off + task.cursor.ch, task.buffer.length)
-      })() },
+      changes: { from: 0, to: view.state.doc.length, insert: t.buffer },
+      selection: { anchor: posToOffset(t.buffer, t.cursor) },
+      effects: setHl.of(hlDecoration(...Object.values(objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)) as [number, number])),
     })
     solvedRef.current = false
     startRef.current = Date.now()
@@ -211,16 +281,15 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
         <span className={`mode-badge ${mode}`}>
           {mode === 'visual-line' ? 'VISUAL LINE' : mode.toUpperCase()}
         </span>
-        {!armed && !solved ? (
-          <button className="primary start-btn" onClick={start}>▶ Start timer</button>
-        ) : (
-          <span className="timer" style={over ? { color: 'var(--warn)' } : solved ? { color: 'var(--accent)' } : undefined}>
-            {secs(elapsed)} <span style={{ color: 'var(--dim)' }}>/ par {task.parSeconds}s</span>
-          </span>
+        {!armed && !solved && (
+          <span style={{ color: 'var(--dim)', fontSize: 12.5 }}>timer starts on your first keypress</span>
         )}
+        <span className="timer" style={over ? { color: 'var(--warn)' } : solved ? { color: 'var(--accent)' } : undefined}>
+          {secs(elapsed)} <span style={{ color: 'var(--dim)' }}>/ par {task.parSeconds}s</span>
+        </span>
       </div>
-      {solved && <div className="solved-banner">✓ Solved in {secs(elapsed)}</div>}
-      {showSolution && <div className="solution-reveal">solution: {escapeKeys(task.solution)}</div>}
+      {solved && <div className="solved-banner">✓ Solved in {secs(elapsed)} — saved</div>}
+      {showSolution && <div className="solution-reveal">solution: {task.solution}</div>}
       <div className="task-actions">
         <button onClick={reset}>Reset</button>
         <button onClick={() => setShowSolution((s) => !s)}>{showSolution ? 'Hide solution' : 'Show solution'}</button>
@@ -240,9 +309,4 @@ function normEqual(a: string, b: string): boolean {
 }
 function samePos(a: { line: number; ch: number }, b: { line: number; ch: number }): boolean {
   return a.line === b.line && a.ch === b.ch
-}
-
-/** make control keys readable: <Esc> <CR> <C-d> */
-function escapeKeys(s: string): string {
-  return s
 }

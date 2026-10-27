@@ -1,4 +1,5 @@
 import type { Lesson } from './types'
+import { pickString } from './variants.ts'
 
 // Section 6 — Text Objects: Quotes. Original text and snippets.
 
@@ -13,10 +14,15 @@ Classic use: emptying a string before retyping it.`,
     tasks: [
       {
         prompt: 'Empty the string with `di"` (cursor anywhere on the line).',
-        buffer: 'const env = "production"',
-        cursor: { line: 0, ch: 6 },
-        goalBuffer: 'const env = ""',
-        goalCursor: { line: 0, ch: 13 },
+        gen: () => {
+          const s = pickString()
+          return {
+            buffer: `const env = "${s}"`,
+            cursor: { line: 0, ch: 6 },
+            goalBuffer: 'const env = ""',
+            goalCursor: { line: 0, ch: 13 },
+          }
+        },
         solution: 'di"',
         command: 'di"',
         parSeconds: 8,
@@ -53,10 +59,15 @@ Update the value.`,
     tasks: [
       {
         prompt: 'Change the string contents to `staging` with `ci"`, then `Esc`.',
-        buffer: 'const env = "dev"',
-        cursor: { line: 0, ch: 12 },
-        goalBuffer: 'const env = "staging"',
-        goalCursor: { line: 0, ch: 19 },
+        gen: () => {
+          const s = pickString()
+          return {
+            buffer: `const env = "${s}"`,
+            cursor: { line: 0, ch: 12 },
+            goalBuffer: 'const env = "staging"',
+            goalCursor: { line: 0, ch: 19 },
+          }
+        },
         solution: 'ci"staging<Esc>',
         command: 'ci"',
         parSeconds: 12,

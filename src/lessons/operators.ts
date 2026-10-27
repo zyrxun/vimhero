@@ -1,4 +1,5 @@
 import type { Lesson } from './types'
+import { pick, pickIdent, pickNum, pickWord } from './variants.ts'
 
 // Section 2 — Basic Operators. Original text and snippets.
 
@@ -12,11 +13,18 @@ export const operators: Lesson[] = [
 The deleted text lands in the unnamed register (more on that in the copy/paste lesson). Delete the word \`junk\` — cursor starts on \`j\`.`,
     tasks: [
       {
-        prompt: 'Delete the word `junk` with `dw` (cursor is on the `j`).',
-        buffer: 'const list = [junk];',
-        cursor: { line: 0, ch: 14 },
-        goalBuffer: 'const list = [];',
-        goalCursor: { line: 0, ch: 14 },
+        prompt: 'Delete the word (cursor is on it) with `dw`.',
+        gen: () => {
+          const n = pickIdent()
+          const w = pickWord()
+          const pre = `const ${n} = [`
+          return {
+            buffer: `${pre}${w}];`,
+            cursor: { line: 0, ch: pre.length },
+            goalBuffer: `${pre}];`,
+            goalCursor: { line: 0, ch: pre.length },
+          }
+        },
         solution: 'dw',
         command: 'dw',
         parSeconds: 6,
@@ -42,11 +50,17 @@ The deleted text lands in the unnamed register (more on that in the copy/paste l
 Finish the rename: cursor is on \`slow\`, change it to \`fast\`.`,
     tasks: [
       {
-        prompt: 'Change the word `slow` to `fast` with `cw` (cursor on `s`), then `Esc`.',
-        buffer: 'const mode = "slow"',
-        cursor: { line: 0, ch: 14 },
-        goalBuffer: 'const mode = "fast"',
-        goalCursor: { line: 0, ch: 17 },
+        prompt: 'Change the word in quotes to `fast` with `cw` (cursor is on it), then `Esc`.',
+        gen: () => {
+          const k = pick(['mode', 'env', 'tag', 'role'])
+          const pre = `const ${k} = "`
+          return {
+            buffer: `${pre}slow"`,
+            cursor: { line: 0, ch: pre.length },
+            goalBuffer: `${pre}fast"`,
+            goalCursor: { line: 0, ch: pre.length + 3 },
+          }
+        },
         solution: 'cwfast<Esc>',
         command: 'cw',
         parSeconds: 10,
@@ -64,10 +78,16 @@ Both keep you in normal mode. Remove the dead line entirely with \`dd\`.`,
     tasks: [
       {
         prompt: 'Delete the middle line with `dd` (cursor starts on it).',
-        buffer: 'const a = 1\nconst TODO = null\nconst b = 2',
-        cursor: { line: 1, ch: 0 },
-        goalBuffer: 'const a = 1\nconst b = 2',
-        goalCursor: { line: 1, ch: 0 },
+        gen: () => {
+          const a = pickIdent()
+          const b = pickIdent()
+          return {
+            buffer: `const ${a} = 1\nconst TODO = null\nconst ${b} = 2`,
+            cursor: { line: 1, ch: 0 },
+            goalBuffer: `const ${a} = 1\nconst ${b} = 2`,
+            goalCursor: { line: 1, ch: 0 },
+          }
+        },
         solution: 'dd',
         command: 'dd',
         parSeconds: 6,
@@ -103,11 +123,18 @@ These combos are why \`j\`/\`k\` live on home row. Clear the block.`,
         parSeconds: 8,
       },
       {
-        prompt: 'Delete three lines with `3dd` (or `d3j` minus one — try `3dd`).',
-        buffer: 'header\ndebug one\ndebug two\ndebug three\nfooter',
-        cursor: { line: 1, ch: 0 },
-        goalBuffer: 'header\nfooter',
-        goalCursor: { line: 1, ch: 0 },
+        prompt: 'Delete three debug lines with `3dd` (cursor is on the first).',
+        gen: () => {
+          const w1 = pickWord()
+          const w2 = pickWord()
+          const w3 = pickWord()
+          return {
+            buffer: `header\ndebug ${w1}\ndebug ${w2}\ndebug ${w3}\nfooter`,
+            cursor: { line: 1, ch: 0 },
+            goalBuffer: 'header\nfooter',
+            goalCursor: { line: 1, ch: 0 },
+          }
+        },
         solution: '3dd',
         command: '3dd',
         parSeconds: 8,
@@ -126,10 +153,15 @@ Duplicate the config line with \`yy\` then \`p\`.`,
     tasks: [
       {
         prompt: 'Yank the line with `yy`, then paste a copy below with `p`.',
-        buffer: 'const retries = 3',
-        cursor: { line: 0, ch: 0 },
-        goalBuffer: 'const retries = 3\nconst retries = 3',
-        goalCursor: { line: 1, ch: 0 },
+        gen: () => {
+          const line = `const ${pickIdent()} = ${pickNum()}`
+          return {
+            buffer: line,
+            cursor: { line: 0, ch: 0 },
+            goalBuffer: `${line}\n${line}`,
+            goalCursor: { line: 1, ch: 0 },
+          }
+        },
         solution: 'yyp',
         command: 'yy',
         parSeconds: 8,

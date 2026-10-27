@@ -1,4 +1,5 @@
 import type { Lesson } from './types'
+import { pick, pickArgs, pickIdent, pickString } from './variants.ts'
 
 // Section 5 — Text Objects: Bracket Pairs. Original text and snippets.
 
@@ -15,10 +16,15 @@ So \`di(\` = delete what's inside the parens; \`da(\` = delete the parens too. O
     tasks: [
       {
         prompt: 'Warm-up: delete everything inside the parens with `di(` (cursor is inside).',
-        buffer: 'call(alpha, beta)',
-        cursor: { line: 0, ch: 7 },
-        goalBuffer: 'call()',
-        goalCursor: { line: 0, ch: 5 },
+        gen: () => {
+          const args = pickArgs()
+          return {
+            buffer: `call(${args})`,
+            cursor: { line: 0, ch: 6 },
+            goalBuffer: 'call()',
+            goalCursor: { line: 0, ch: 5 },
+          }
+        },
         solution: 'di(',
         command: 'di(',
         parSeconds: 8,
@@ -75,10 +81,16 @@ Rewrite the function body.`,
     tasks: [
       {
         prompt: 'Replace the object contents with `mode: "fast"` using `ci{`, then `Esc`.',
-        buffer: 'const opts = { slow: true, retries: 9 }',
-        cursor: { line: 0, ch: 20 },
-        goalBuffer: 'const opts = {mode: "fast"}',
-        goalCursor: { line: 0, ch: 25 },
+        gen: () => {
+          const pairs = pick(['slow: true, retries: 9', 'debug: false, depth: 4', 'cache: true, ttl: 60', 'retries: 3, verbose: true'])
+          const cursor = Math.min(20, 15 + Math.floor(pairs.length / 2))
+          return {
+            buffer: `const opts = { ${pairs} }`,
+            cursor: { line: 0, ch: cursor },
+            goalBuffer: 'const opts = {mode: "fast"}',
+            goalCursor: { line: 0, ch: 25 },
+          }
+        },
         solution: 'ci{mode: "fast"<Esc>',
         command: 'ci{',
         parSeconds: 14,
@@ -113,20 +125,33 @@ Swap the object for a plain number.`,
     tasks: [
       {
         prompt: 'Empty the array (works with `[` too) using `di[`.',
-        buffer: 'const nums = [1, 2, 3]',
-        cursor: { line: 0, ch: 15 },
-        goalBuffer: 'const nums = []',
-        goalCursor: { line: 0, ch: 14 },
+        gen: () => {
+          const nums = pick(['1, 2, 3', '10, 20, 30', '5', '60, 12'])
+          const cursor = Math.min(18, 15 + 1)
+          return {
+            buffer: `const nums = [${nums}]`,
+            cursor: { line: 0, ch: cursor },
+            goalBuffer: 'const nums = []',
+            goalCursor: { line: 0, ch: 14 },
+          }
+        },
         solution: 'di[',
         command: 'di[',
         parSeconds: 8,
       },
       {
         prompt: 'Delete the whole call including parens with `da(`.',
-        buffer: 'setup(debug(true))\nrun()',
-        cursor: { line: 0, ch: 10 },
-        goalBuffer: 'setup\nrun()',
-        goalCursor: { line: 0, ch: 4 },
+        gen: () => {
+          const fn = pick(['setup', 'init', 'boot', 'start'])
+          const args = pickArgs()
+          const cursor = fn.length + 4
+          return {
+            buffer: `${fn}(debug(${args}))\nrun()`,
+            cursor: { line: 0, ch: cursor },
+            goalBuffer: `${fn}\nrun()`,
+            goalCursor: { line: 0, ch: fn.length },
+          }
+        },
         solution: 'da(',
         command: 'da(',
         parSeconds: 10,

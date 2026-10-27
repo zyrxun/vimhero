@@ -1,4 +1,5 @@
 import type { Lesson } from './types'
+import { pickNum, pickString } from './variants.ts'
 
 // Section 1 — Basic Vim. All lesson text and code snippets are original.
 
@@ -208,20 +209,34 @@ Use \`x\` to strip the trailing \`.\` off the string.`,
     tasks: [
       {
         prompt: 'Delete the stray `.` at the end of the string with `x` (cursor is on it).',
-        buffer: 'const msg = "done."',
-        cursor: { line: 0, ch: 17 },
-        goalBuffer: 'const msg = "done"',
-        goalCursor: { line: 0, ch: 16 },
+        gen: () => {
+          const s = pickString()
+          const buf = `const msg = "${s}."`
+          const dot = buf.length - 2
+          return {
+            buffer: buf,
+            cursor: { line: 0, ch: dot },
+            goalBuffer: `const msg = "${s}"`,
+            goalCursor: { line: 0, ch: dot - 1 },
+          }
+        },
         solution: 'x',
         command: 'x',
         parSeconds: 6,
       },
       {
-        prompt: 'Replace the `1` with `2` using `r` (cursor is on the `1`).',
-        buffer: 'const version = 1',
-        cursor: { line: 0, ch: 16 },
-        goalBuffer: 'const version = 2',
-        goalCursor: { line: 0, ch: 16 },
+        prompt: 'Replace the last digit with `2` using `r` (cursor is on it).',
+        gen: () => {
+          const n = pickNum()
+          const buf = `const version = ${n}`
+          const c = buf.length - 1
+          return {
+            buffer: buf,
+            cursor: { line: 0, ch: c },
+            goalBuffer: buf.slice(0, c) + '2',
+            goalCursor: { line: 0, ch: c },
+          }
+        },
         solution: 'r2',
         command: 'r',
         parSeconds: 6,

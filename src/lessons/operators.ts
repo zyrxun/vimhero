@@ -25,7 +25,7 @@ The deleted text lands in the unnamed register (more on that in the copy/paste l
         prompt: 'Delete two words at once with `d2w` — remove `dead code` (cursor on `d`).',
         buffer: 'return dead code; // result',
         cursor: { line: 0, ch: 7 },
-        goalBuffer: 'return; // result',
+        goalBuffer: 'return ; // result',
         goalCursor: { line: 0, ch: 6 },
         solution: 'd2w',
         command: 'd2w',

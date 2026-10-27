@@ -42,7 +42,8 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
   const statIdx = Number(editorKey.slice(sep + 1))
   const everInsert = useRef(false)
 
-  // scroll tasks (<C-d>) never change doc/selection — detect the key directly
+  // scroll tasks (<C-d>) never change doc/selection — detect the key directly.
+  // Listen on the host div (exists before the view mounts); keydown bubbles up.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (task.command !== '<C-d>' || solvedRef.current) return
@@ -55,7 +56,7 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
         onSolve(ms)
       }
     }
-    const dom = host.current?.querySelector('.cm-content') as HTMLElement | null
+    const dom = host.current
     dom?.addEventListener('keydown', onKey)
     return () => dom?.removeEventListener('keydown', onKey)
   }, [editorKey, task, record, statSlug, statIdx, onSolve])
@@ -101,12 +102,10 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
             const v = getCM(u.view)?.state?.vim
             if (v?.visualMode && head !== sel.anchor) head += head > sel.anchor ? -1 : 1
             const line = u.state.doc.lineAt(head)
-            const check = checkTask(text, { line: line.number - 1, ch: head - line.from }, task)
-            // no-op tasks (goal == start): the insert→normal round trip IS the task,
-            // cursor/text checks are meaningless since state never changes
-            const noOp = normEqual(task.buffer, task.goalBuffer) && samePos(task.cursor, task.goalCursor)
-            const ok = noOp ? everInsert.current && m === 'normal' : check.done
-            if (ok) {
+            const cursor = { line: line.number - 1, ch: head - line.from }
+            const check = checkTask(text, cursor, task)
+
+            const complete = () => {
               solvedRef.current = true
               setSolved(true)
               const ms = Date.now() - startRef.current
@@ -114,6 +113,20 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
               if (record) store.recordSolve(statSlug, statIdx, task, ms)
               onSolve(ms)
             }
+
+            // no-op tasks (goal == start): the insert→normal round trip IS the task
+            const noOp = normEqual(task.buffer, task.goalBuffer) && samePos(task.cursor, task.goalCursor)
+            if (noOp) {
+              if (everInsert.current && m === 'normal') complete()
+              return
+            }
+            // visual-LINE selections: the line span is the unit, cursor column is
+            // meaningless — compare the selection's end line only
+            if (v?.visualLine && v?.visualMode) {
+              if (cursor.line === task.goalCursor.line && check.textOk) complete()
+              return
+            }
+            if (check.done) complete()
           }),
         ],
       }),

@@ -69,7 +69,7 @@ Functions in most files are separated by blank lines, so these two keys hop func
         buffer: 'function alpha() {\n  return 1\n}\n\nfunction beta() {\n  return 2\n}',
         cursor: { line: 0, ch: 0 },
         goalBuffer: 'function alpha() {\n  return 1\n}\n\nfunction beta() {\n  return 2\n}',
-        goalCursor: { line: 4, ch: 0 },
+        goalCursor: { line: 3, ch: 0 },
         solution: '}',
         command: '}',
         parSeconds: 6,

@@ -127,10 +127,9 @@ Swap the object for a plain number.`,
         prompt: 'Empty the array (works with `[` too) using `di[`.',
         gen: () => {
           const nums = pick(['1, 2, 3', '10, 20, 30', '5', '60, 12'])
-          const cursor = Math.min(18, 15 + 1)
           return {
             buffer: `const nums = [${nums}]`,
-            cursor: { line: 0, ch: cursor },
+            cursor: { line: 0, ch: 15 },
             goalBuffer: 'const nums = []',
             goalCursor: { line: 0, ch: 14 },
           }

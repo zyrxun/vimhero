@@ -1,0 +1,231 @@
+:root {
+  --bg: #0f1117;
+  --bg2: #161a23;
+  --bg3: #1e2330;
+  --border: #2a3040;
+  --text: #d7dce6;
+  --dim: #8b93a7;
+  --accent: #4ec9a4;
+  --accent2: #5b9bf5;
+  --warn: #e5c07b;
+  --bad: #e06c75;
+  --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+}
+
+.app { display: flex; height: 100vh; }
+
+/* ---------- sidebar ---------- */
+.sidebar {
+  width: 280px;
+  min-width: 280px;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 12px 0 40px;
+}
+.sidebar .brand {
+  font-weight: 700;
+  font-size: 16px;
+  padding: 10px 16px 14px;
+  color: var(--accent);
+  letter-spacing: 0.3px;
+}
+.sidebar .section-name {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--dim);
+  padding: 14px 16px 4px;
+}
+.sidebar a {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13.5px;
+  border-left: 3px solid transparent;
+}
+.sidebar a:hover { background: var(--bg3); }
+.sidebar a.active { border-left-color: var(--accent); background: var(--bg3); }
+.sidebar a .keys {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.sidebar a .done { color: var(--accent); }
+
+/* ---------- main ---------- */
+.main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px 80px;
+}
+.main .topnav {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+.topnav a {
+  color: var(--dim);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+}
+.topnav a.active { color: var(--accent); }
+
+h1 { font-size: 24px; margin: 6px 0 14px; }
+.content { max-width: 860px; }
+
+/* ---------- lesson theory (markdown) ---------- */
+.theory { line-height: 1.65; color: var(--text); max-width: 76ch; }
+.theory h2 { font-size: 17px; margin: 18px 0 6px; }
+.theory code, .theory kbd {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--accent2);
+}
+.theory pre {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+}
+.theory pre code { border: none; background: none; padding: 0; }
+.theory ul { padding-left: 22px; }
+.theory li { margin: 3px 0; }
+
+/* ---------- task card ---------- */
+.task-card {
+  margin-top: 22px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.task-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg3);
+}
+.task-head .prompt { font-size: 14px; }
+.task-head .prompt code { font-family: var(--mono); color: var(--accent2); background: var(--bg); padding: 1px 4px; border-radius: 3px; }
+.task-head .task-num { color: var(--dim); font-size: 12px; white-space: nowrap; }
+
+.editor-host .cm-editor { outline: none; }
+.editor-host .cm-editor.cm-focused { outline: 1px solid var(--border); }
+.editor-host .cm-scroller { font-family: var(--mono); font-size: 13.5px; line-height: 1.55; }
+.editor-host .cm-gutters { background: var(--bg2); border-right: 1px solid var(--border); color: var(--dim); }
+.editor-host .cm-activeLine { background: #ffffff08; }
+.editor-host .cm-content { padding: 10px 0; min-height: 120px; }
+
+.editor-statusbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--dim);
+}
+.mode-badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--dim);
+}
+.mode-badge.insert { color: var(--warn); border-color: var(--warn); }
+.mode-badge.visual { color: var(--accent2); border-color: var(--accent2); }
+.timer { font-family: var(--mono); }
+
+.task-actions { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--border); }
+button {
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: #08221a; border-color: var(--accent); font-weight: 700; }
+button.primary:disabled { opacity: 0.35; cursor: not-allowed; }
+button.danger { color: var(--bad); }
+
+.solved-banner {
+  padding: 8px 14px;
+  background: #4ec9a41a;
+  border-top: 1px solid var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 13.5px;
+}
+.solution-reveal {
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--warn);
+}
+
+.lesson-footer { display: flex; justify-content: space-between; margin-top: 26px; }
+.lesson-footer a, button.linkish {
+  color: var(--accent2);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+}
+.lesson-complete {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: #4ec9a41a;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* ---------- stats/practice ---------- */
+table.stats { border-collapse: collapse; width: 100%; max-width: 720px; margin-top: 12px; }
+table.stats th, table.stats td {
+  text-align: left;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13.5px;
+}
+table.stats th { color: var(--dim); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+table.stats td.mono, table.stats th.mono { font-family: var(--mono); }
+.big-num { font-size: 30px; font-weight: 800; color: var(--accent); margin-right: 28px; }
+.big-num .label { display: block; font-size: 11px; color: var(--dim); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+.summary { display: flex; align-items: baseline; margin: 14px 0 6px; }

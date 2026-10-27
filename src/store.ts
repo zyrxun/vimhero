@@ -8,6 +8,7 @@ type Store = {
   done: Record<string, TaskAttempt> // key: `${slug}/${taskIndex}`
   lessonsDone: Record<string, true>
   cmds: Record<string, CmdStat>
+  motionBest?: number
 }
 
 const KEY = 'vimtrainer.v1'
@@ -89,5 +90,14 @@ export const store = {
 
   statsRaw(): Store {
     return state
+  },
+
+  motionBest(): number {
+    return state.motionBest ?? 0
+  },
+
+  setMotionBest(n: number) {
+    state.motionBest = Math.max(n, state.motionBest ?? 0)
+    save()
   },
 }

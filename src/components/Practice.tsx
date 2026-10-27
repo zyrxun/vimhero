@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { allTasks, allLessons } from '../lessons'
 import { ChallengeEditor } from './ChallengeEditor'
+import { MotionDrill } from './MotionDrill'
 import { store } from '../store'
 
 /** Pick the weakest practiced task: lessons you've finished, weighted by error rate + staleness. */
@@ -25,7 +26,7 @@ function pickTask(): (typeof allTasks)[number] {
   return scored[scored.length - 1].t
 }
 
-export function Practice() {
+function TaskDrills() {
   const [current, setCurrent] = useState(() => pickTask())
   const [streak, setStreak] = useState(0)
   const [round, setRound] = useState(0)
@@ -36,8 +37,7 @@ export function Practice() {
   )
 
   return (
-    <div className="content">
-      <h1>Practice</h1>
+    <>
       <p className="theory">
         Weakest-first drills from lessons you've completed. Streak: <strong>{streak}</strong>
       </p>
@@ -71,6 +71,20 @@ export function Practice() {
           reset streak / skip
         </button>
       </div>
+    </>
+  )
+}
+
+export function Practice() {
+  const [tab, setTab] = useState<'motion' | 'tasks'>('motion')
+
+  return (
+    <div className="content">
+      <div className="topnav" style={{ borderBottom: '1px solid var(--border)', marginBottom: 18 }}>
+        <a href="#/practice" onClick={(e) => { e.preventDefault(); setTab('motion') }} className={tab === 'motion' ? 'active' : ''}>Motion drill · 30s</a>
+        <a href="#/practice" onClick={(e) => { e.preventDefault(); setTab('tasks') }} className={tab === 'tasks' ? 'active' : ''}>Task drills</a>
+      </div>
+      {tab === 'motion' ? <MotionDrill /> : <TaskDrills />}
     </div>
   )
 }

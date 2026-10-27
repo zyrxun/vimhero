@@ -52,6 +52,17 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
   const statSlug = editorKey.slice(0, sep)
   const statIdx = Number(editorKey.slice(sep + 1))
   const everInsert = useRef(false)
+  // timer + validation stay cold until the user presses Start
+  const [armed, setArmed] = useState(false)
+  const armedRef = useRef(false)
+
+  const start = () => {
+    if (armedRef.current) return
+    armedRef.current = true
+    setArmed(true)
+    startRef.current = Date.now()
+    viewRef.current?.focus()
+  }
 
   // scroll tasks (<C-d>) never change doc/selection — detect the key directly.
   // Listen on the host div (exists before the view mounts); keydown bubbles up.
@@ -76,8 +87,10 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     // reset everything when the task changes
     solvedRef.current = false
     everInsert.current = false
+    armedRef.current = false
     startRef.current = Date.now()
     setSolved(false)
+    setArmed(false)
     setShowSolution(false)
     setElapsed(0)
 
@@ -104,7 +117,7 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
             const m = readMode(u.view)
             setMode(m)
             if (m === 'insert') everInsert.current = true
-            if (solvedRef.current) return
+            if (solvedRef.current || !armedRef.current) return
             const text = u.state.doc.toString()
             const sel = u.state.selection.main
             let head = sel.head
@@ -178,12 +191,12 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     view.focus()
   }
 
-  // live timer while unsolved
+  // live timer while armed and unsolved
   useEffect(() => {
-    if (solved) return
+    if (solved || !armed) return
     const t = setInterval(() => setElapsed(Date.now() - startRef.current), 250)
     return () => clearInterval(t)
-  }, [editorKey, solved])
+  }, [editorKey, solved, armed])
 
   const over = elapsed > task.parSeconds * 1000
 
@@ -198,9 +211,13 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
         <span className={`mode-badge ${mode}`}>
           {mode === 'visual-line' ? 'VISUAL LINE' : mode.toUpperCase()}
         </span>
-        <span className="timer" style={over ? { color: 'var(--warn)' } : solved ? { color: 'var(--accent)' } : undefined}>
-          {solved ? secs(elapsed) : secs(elapsed)} <span style={{ color: 'var(--dim)' }}>/ par {task.parSeconds}s</span>
-        </span>
+        {!armed && !solved ? (
+          <button className="primary start-btn" onClick={start}>▶ Start timer</button>
+        ) : (
+          <span className="timer" style={over ? { color: 'var(--warn)' } : solved ? { color: 'var(--accent)' } : undefined}>
+            {secs(elapsed)} <span style={{ color: 'var(--dim)' }}>/ par {task.parSeconds}s</span>
+          </span>
+        )}
       </div>
       {solved && <div className="solved-banner">✓ Solved in {secs(elapsed)}</div>}
       {showSolution && <div className="solution-reveal">solution: {escapeKeys(task.solution)}</div>}

@@ -197,6 +197,31 @@ button.danger { color: var(--bad); }
   font-weight: 600;
   font-size: 13.5px;
 }
+
+/* ---------- motion drill ---------- */
+.target-char {
+  background: #e5c07b33;
+  color: var(--warn);
+  font-weight: 700;
+  outline: 1px solid var(--warn);
+  border-radius: 2px;
+}
+.drill-hud {
+  display: flex;
+  gap: 26px;
+  align-items: center;
+  margin: 14px 0;
+}
+.drill-time {
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--accent2);
+  min-width: 70px;
+}
+.drill-score { color: var(--dim); font-size: 14px; }
+.drill-score strong { color: var(--text); font-size: 18px; margin-left: 4px; }
+.start-btn { white-space: nowrap; }
 .solution-reveal {
   padding: 8px 14px;
   border-top: 1px solid var(--border);

@@ -121,17 +121,12 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
   const REPS = task.command === 'modes' || task.command === '<C-d>' ? 1 : 3
   const repRef = useRef(0)
   const [repDone, setRepDone] = useState(0)
+  const [mountId, setMountId] = useState(0)
 
   const reroll = () => {
-    const view = viewRef.current
-    if (!view) return
-    resolved.current = resolveTask(task)
-    const t = resolved.current
-    view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: t.buffer },
-      selection: { anchor: posToOffset(t.buffer, t.cursor) },
-      effects: setHl.of(hlDecoration(...Object.values(objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)) as [number, number])),
-    })
+    // fresh editor mount: guarantees the vim engine starts from the exact
+    // task.cursor (in-place doc swaps desync cm6-vim's internal cursor)
+    setMountId((m) => m + 1)
   }
 
   const arm = () => {
@@ -145,9 +140,12 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
 
   /** One objective cleared. Chain the next rep, or finish the task on the last. */
   const finishRep = (view: EditorView) => {
+    // re-entry guard: several updates can land in the same tick; the remount
+    // (rep chain) or the solved state (final rep) clears it
+    if (solvedRef.current) return
+    solvedRef.current = true
     const ms = Date.now() - startRef.current
     if (repRef.current + 1 >= REPS) {
-      solvedRef.current = true
       setSolved(true)
       setElapsed(ms)
       if (record) store.recordSolve(statSlug, statIdx, resolved.current, ms)
@@ -187,7 +185,7 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
   }, [editorKey])
 
   useEffect(() => {
-    // reset everything when the task changes
+    // reset meta-state when the task changes (rep/armed/timer)
     solvedRef.current = false
     everInsert.current = false
     armedRef.current = false
@@ -198,8 +196,11 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     setRepDone(0)
     setShowSolution(false)
     setElapsed(0)
+  }, [editorKey])
 
-    // roll a fresh variant (if the task has a generator)
+  useEffect(() => {
+    // (re)mount the editor — fresh vim state, cursor exactly at task.cursor.
+    // Re-runs per rep: resolveTask rolls a fresh variant when the task has one.
     resolved.current = resolveTask(task)
     const t = resolved.current
 
@@ -227,6 +228,9 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
             const m = readMode(u.view)
             setMode(m)
             if (m === 'insert') everInsert.current = true
+            // objectives complete in normal mode: mid-insert matches don't count
+            // (the user hasn't confirmed with Esc yet)
+            if (m === 'insert') return
             if (solvedRef.current || !armedRef.current) return
             const tt = resolved.current
             const text = u.state.doc.toString()
@@ -252,43 +256,34 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
               if (cursor.line === tt.goalCursor.line && check.textOk) finishRep(u.view)
               return
             }
-            if (check.done) {
-              finishRep(u.view)
-              u.view.dispatch({ effects: setHl.of(null) })
-            }
+            if (check.done) finishRep(u.view)
           }),
         ],
       }),
     })
     viewRef.current = view
     ;(window as unknown as Record<string, unknown>).__vh = view
+    // fresh mount = unsolved: clears the finishRep re-entry guard
+    solvedRef.current = false
     view.dispatch({ effects: setHl.of(hlDecoration(...Object.values(objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)) as [number, number])) })
     view.focus()
     forceNormal(view)
     return () => { view.destroy(); viewRef.current = null }
-  }, [editorKey])
+  }, [editorKey, mountId])
 
   const secs = (ms: number) => (ms / 1000).toFixed(1) + 's'
 
   const reset = () => {
-    const view = viewRef.current
-    if (!view) return
-    // re-roll the variant
+    // full restart: re-roll the variant, reset rep chain, timer restarts on
+    // the next keypress (armed state is kept)
     resolved.current = resolveTask(task)
-    const t = resolved.current
-    view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: t.buffer },
-      selection: { anchor: posToOffset(t.buffer, t.cursor) },
-      effects: setHl.of(hlDecoration(...Object.values(objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)) as [number, number])),
-    })
     solvedRef.current = false
     repRef.current = 0
     startRef.current = Date.now()
     setSolved(false)
     setRepDone(0)
     setElapsed(0)
-    forceNormal(view)
-    view.focus()
+    setMountId((m) => m + 1)
   }
 
   // live timer while armed and unsolved

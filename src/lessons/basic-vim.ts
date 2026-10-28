@@ -1,5 +1,5 @@
 import type { Lesson } from './types'
-import { pickNum, pickString } from './variants.ts'
+import { pick, pickNum, pickString } from './variants.ts'
 
 // Section 1 — Basic Vim. All lesson text and code snippets are original.
 
@@ -45,7 +45,7 @@ Feels odd for a day, automatic by the end of the week. Move the cursor onto the 
         buffer: 'const a = 1\nconst b = 2\nconst c = X\nconst d = 4',
         cursor: { line: 0, ch: 0 },
         goalBuffer: 'const a = 1\nconst b = 2\nconst c = X\nconst d = 4',
-        goalCursor: { line: 2, ch: 9 },
+        goalCursor: { line: 2, ch: 10 },
         solution: 'jjllllllllll',
         command: 'hjkl',
         parSeconds: 8,
@@ -227,7 +227,9 @@ Use \`x\` to strip the trailing \`.\` off the string.`,
       {
         prompt: 'Replace the last digit with `2` using `r` (cursor is on it).',
         gen: () => {
-          const n = pickNum()
+          // pool excludes numbers ending in 2 — replacing the last digit with 2
+          // would otherwise reproduce the original buffer
+          const n = pick(['3', '7', '13', '40', '99', '507'])
           const buf = `const version = ${n}`
           const c = buf.length - 1
           return {

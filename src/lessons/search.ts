@@ -17,7 +17,7 @@ After a search, \`n\` jumps to the next match, \`N\` to the previous. This is us
         buffer: 'const hay = ["x", "y"]\nconst found = "needle"\nconsole.log(found)',
         cursor: { line: 0, ch: 0 },
         goalBuffer: 'const hay = ["x", "y"]\nconst found = "needle"\nconsole.log(found)',
-        goalCursor: { line: 1, ch: 14 },
+        goalCursor: { line: 1, ch: 15 },
         solution: '/needle<CR>',
         command: '/',
         parSeconds: 8,

@@ -74,11 +74,12 @@ function objectiveRange(buf: string, goal: string, goalCursor: { line: number; c
     const at = Math.max(0, Math.min(p - 1, buf.length - 1))
     return { from: at, to: at + 1 }
   }
-  // expand the changed span to word-ish boundaries
+  // expand the changed span to word-ish boundaries (never cross delimiters
+  // like [ ] ( ) " — di[ must highlight the contents, not the brackets)
   let from = p
-  while (from > 0 && !/[ \t\n]/.test(buf[from - 1])) from--
+  while (from > 0 && /[A-Za-z0-9_-]/.test(buf[from - 1])) from--
   let to = buf.length - s
-  while (to < buf.length && !/[ \t\n]/.test(buf[to])) to++
+  while (to < buf.length && /[A-Za-z0-9_-]/.test(buf[to])) to++
   if (to <= from) to = from + 1
   return { from, to }
 }
@@ -122,10 +123,19 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
   const repRef = useRef(0)
   const [repDone, setRepDone] = useState(0)
   const [mountId, setMountId] = useState(0)
+  // cursor carried across reps (next objective appears where the user is)
+  const carryRef = useRef<{ line: number; ch: number } | null>(null)
 
   const reroll = () => {
     // fresh editor mount: guarantees the vim engine starts from the exact
-    // task.cursor (in-place doc swaps desync cm6-vim's internal cursor)
+    // task.cursor (in-place doc swaps desync cm6-vim's internal cursor).
+    // carry the cursor: the next objective appears where the user already is
+    const v = viewRef.current
+    if (v) {
+      const s = v.state.selection.main
+      const l = v.state.doc.lineAt(s.head)
+      carryRef.current = { line: l.number - 1, ch: s.head - l.from }
+    }
     setMountId((m) => m + 1)
   }
 
@@ -196,6 +206,7 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     setRepDone(0)
     setShowSolution(false)
     setElapsed(0)
+    carryRef.current = null
   }, [editorKey])
 
   useEffect(() => {
@@ -203,12 +214,15 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     // Re-runs per rep: resolveTask rolls a fresh variant when the task has one.
     resolved.current = resolveTask(task)
     const t = resolved.current
+    // rep chains carry the cursor: next objective appears where the user is;
+    // fresh task/reset starts at the task's own start position
+    const startPos = carryRef.current ?? t.cursor
 
     const view = new EditorView({
       parent: host.current!,
       state: EditorState.create({
         doc: t.buffer,
-        selection: { anchor: posToOffset(t.buffer, t.cursor) },
+        selection: { anchor: posToOffset(t.buffer, startPos) },
         extensions: [
           vim(),
           hlField,
@@ -279,6 +293,7 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     resolved.current = resolveTask(task)
     solvedRef.current = false
     repRef.current = 0
+    carryRef.current = null
     startRef.current = Date.now()
     setSolved(false)
     setRepDone(0)

@@ -93,6 +93,7 @@ Both keep you in normal mode. Remove the dead line entirely with \`dd\`.`,
         parSeconds: 6,
       },
       {
+        shuffle: true,
         prompt: 'Cut the trailing comment off with `D` (cursor is on the `/`).',
         buffer: 'export default App // remove this',
         cursor: { line: 0, ch: 19 },

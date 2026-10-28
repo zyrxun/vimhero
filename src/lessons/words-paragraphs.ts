@@ -19,7 +19,7 @@ Note the asymmetry: on the space before a word, \`diw\` still grabs the word, no
           const buf = `// note: ${w} is misspelled`
           return {
             buffer: buf,
-            cursor: { line: 0, ch: 9 + Math.floor(w.length / 2) },
+            cursor: { line: 0, ch: 9 },
             goalBuffer: '// note:  is misspelled',
             goalCursor: { line: 0, ch: 8 },
           }
@@ -45,7 +45,7 @@ This is the one for removing a word from a sentence.`,
           const buf = `this is ${w} important`
           return {
             buffer: buf,
-            cursor: { line: 0, ch: 8 + Math.floor(w.length / 2) },
+            cursor: { line: 0, ch: 8 },
             goalBuffer: 'this is important',
             goalCursor: { line: 0, ch: 7 },
           }
@@ -71,7 +71,7 @@ Rename the variable.`,
           const buf = `const ${id} = getSession()`
           return {
             buffer: buf,
-            cursor: { line: 0, ch: 6 + Math.floor(id.length / 2) },
+            cursor: { line: 0, ch: 6 },
             goalBuffer: 'const user = getSession()',
             goalCursor: { line: 0, ch: 9 },
           }
@@ -185,6 +185,7 @@ Delete the dead function block outright.`,
 You now know every piece. Three final tasks mix them.`,
     tasks: [
       {
+        snapCursor: true,
         prompt: 'Duplicate the line below itself: `yy` then `p`.',
         buffer: 'export const VERSION = "9"',
         cursor: { line: 0, ch: 13 },
@@ -195,6 +196,7 @@ You now know every piece. Three final tasks mix them.`,
         parSeconds: 12,
       },
       {
+        snapCursor: true,
         prompt: 'Change the quoted URL path to `/v2/health` with `ci"`.',
         buffer: 'const ping = "/v1/status"',
         cursor: { line: 0, ch: 8 },
@@ -205,6 +207,7 @@ You now know every piece. Three final tasks mix them.`,
         parSeconds: 14,
       },
       {
+        snapCursor: true,
         prompt: 'Delete the whole array including brackets with `da[`.',
         buffer: 'const seeds = [3, 1, 4];\nshuffle(seeds)',
         cursor: { line: 0, ch: 18 },

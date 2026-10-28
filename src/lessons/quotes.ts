@@ -101,6 +101,7 @@ Turn the string into a bare number.`,
     theory: `Four quote commands, one review: \`di"\` \`da"\` \`ci"\` \`ca"\`.`,
     tasks: [
       {
+        snapCursor: true,
         prompt: 'Empty the string with `di\'` (single quotes work the same).',
         buffer: "const sep = ','",
         cursor: { line: 0, ch: 6 },
@@ -111,6 +112,7 @@ Turn the string into a bare number.`,
         parSeconds: 8,
       },
       {
+        snapCursor: true,
         prompt: 'Rewrite the string as `wss://` with `ci"`, then `Esc`.',
         buffer: 'const proto = "https://"',
         cursor: { line: 0, ch: 0 },

@@ -88,6 +88,7 @@ A "word" is letters/digits — punctuation like \`=\` or \`(\` counts as its own
 \`Esc\` always brings you back to normal mode. Fix the typo: jump next to it, enter insert mode, type the missing letters, \`Esc\`.`,
     tasks: [
       {
+        shuffle: true,
         prompt: 'The output says `Helo`. Insert the missing `l` — cursor is on the `l`. Use `i`, type, then `Esc`.',
         buffer: 'console.log("Helo")',
         cursor: { line: 0, ch: 15 },
@@ -98,6 +99,7 @@ A "word" is letters/digits — punctuation like \`=\` or \`(\` counts as its own
         parSeconds: 10,
       },
       {
+        shuffle: true,
         prompt: 'Append a missing semicolon at the end of the line with `a` (cursor on the last `2`).',
         buffer: 'let total = 42',
         cursor: { line: 0, ch: 13 },
@@ -121,6 +123,7 @@ A "word" is letters/digits — punctuation like \`=\` or \`(\` counts as its own
 No more navigating to the spot first — the command takes you there. Add \`done\` to the end of the todo line with one keypress + typing.`,
     tasks: [
       {
+        shuffle: true,
         prompt: 'Use `A` to append ` // done` (space, //, space, done) at the end of the line, then `Esc`.',
         buffer: 'deploy --prod',
         cursor: { line: 0, ch: 0 },
@@ -131,6 +134,7 @@ No more navigating to the spot first — the command takes you there. Add \`done
         parSeconds: 12,
       },
       {
+        shuffle: true,
         prompt: 'Use `I` to insert `# ` at the very start of the line, then `Esc`.',
         buffer: 'TODO fix the parser',
         cursor: { line: 0, ch: 10 },
@@ -151,6 +155,7 @@ No more navigating to the spot first — the command takes you there. Add \`done
 The classic rhythm: \`A\` + type + \`Esc\` + \`j\` + \`.\` (repeat last change — more on that later). Here, do it manually on two lines.`,
     tasks: [
       {
+        shuffle: true,
         prompt: 'Append `;` to both lines. `A;` then `Esc`, `j`, `.` (dot repeats your last change!).',
         buffer: 'const x = 1\nconst y = 2',
         cursor: { line: 0, ch: 0 },
@@ -368,6 +373,7 @@ Cursor is a flat jump — the fastest way across a line. Find the \`;\`.`,
 Grammar, not memorization: every motion you learned (\`w\`, \`$\`, \`f-\`, ...) now works as an argument to every operator (\`d\`, \`c\`, \`y\`). Try the first one below.`,
     tasks: [
       {
+        shuffle: true,
         prompt: 'Delete from the cursor to the end of the line with `d$`.',
         buffer: 'const err = new Error("boom"); // TODO',
         cursor: { line: 0, ch: 30 },

@@ -83,7 +83,7 @@ Rewrite the function body.`,
         prompt: 'Replace the object contents with `mode: "fast"` using `ci{`, then `Esc`.',
         gen: () => {
           const pairs = pick(['slow: true, retries: 9', 'debug: false, depth: 4', 'cache: true, ttl: 60', 'retries: 3, verbose: true'])
-          const cursor = Math.min(20, 15 + Math.floor(pairs.length / 2))
+          const cursor = 15
           return {
             buffer: `const opts = { ${pairs} }`,
             cursor: { line: 0, ch: cursor },
@@ -143,7 +143,7 @@ Swap the object for a plain number.`,
         gen: () => {
           const fn = pick(['setup', 'init', 'boot', 'start'])
           const args = pickArgs()
-          const cursor = fn.length + 4
+          const cursor = fn.length + 5
           return {
             buffer: `${fn}(debug(${args}))\nrun()`,
             cursor: { line: 0, ch: cursor },
@@ -156,6 +156,7 @@ Swap the object for a plain number.`,
         parSeconds: 10,
       },
       {
+        snapCursor: true,
         prompt: 'Swap the block contents for `return 0` with `ci{`, then `Esc`.',
         buffer: 'function exit() {\n  process.exit(1)\n}',
         cursor: { line: 1, ch: 2 },

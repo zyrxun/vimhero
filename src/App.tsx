@@ -35,17 +35,24 @@ export function App() {
     page = <LessonView key={found.lesson.slug} lesson={found.lesson} go={go} />
   }
 
+  const onLessons = route.startsWith('#/lesson')
+
   return (
-    <div className="app">
-      <Sidebar route={route} />
-      <main className="main">
-        <div className="topnav">
-          <a href={defaultRoute()} className={route.startsWith('#/lesson') ? 'active' : ''}>Lessons</a>
-          <a href="#/practice" className={route === '#/practice' ? 'active' : ''}>Practice</a>
-          <a href="#/stats" className={route === '#/stats' ? 'active' : ''}>Stats</a>
-        </div>
-        {page}
-      </main>
+    <div className="chrome">
+      <header className="topbar">
+        <a className="brand" href={defaultRoute()}>
+          <span className="brand-mark">❯</span> vimtrainer
+        </a>
+        <nav className="topnav">
+          <a href={defaultRoute()} className={onLessons ? 'active' : ''}>▤ Lessons</a>
+          <a href="#/practice" className={route === '#/practice' ? 'active' : ''}>↳ Practice</a>
+          <a href="#/stats" className={route === '#/stats' ? 'active' : ''}>▦ Stats</a>
+        </nav>
+      </header>
+      <div className="shell">
+        <Sidebar route={route} />
+        <main className="main">{page}</main>
+      </div>
     </div>
   )
 }

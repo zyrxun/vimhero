@@ -16,6 +16,7 @@ export function Markdown({ text }: { text: string }): ReactNode {
   const lines = text.split('\n')
   const out: ReactNode[] = []
   let list: string[] = []
+  let olist: string[] = []
   let para: string[] = []
   let fence: string[] | null = null
 
@@ -23,6 +24,10 @@ export function Markdown({ text }: { text: string }): ReactNode {
     if (list.length) {
       out.push(<ul key={out.length}>{list.map((li, i) => <li key={i} dangerouslySetInnerHTML={{ __html: inline(li) }} />)}</ul>)
       list = []
+    }
+    if (olist.length) {
+      out.push(<ol key={out.length}>{olist.map((li, i) => <li key={i} dangerouslySetInnerHTML={{ __html: inline(li) }} />)}</ol>)
+      olist = []
     }
   }
   const flushPara = () => {
@@ -45,6 +50,8 @@ export function Markdown({ text }: { text: string }): ReactNode {
     if (fence) { fence.push(line); continue }
     if (line.startsWith('## ')) { flushPara(); flushList(); out.push(<h2 key={out.length} dangerouslySetInnerHTML={{ __html: inline(line.slice(3)) }} />); continue }
     if (line.startsWith('- ')) { flushPara(); list.push(line.slice(2)); continue }
+    const om = line.match(/^(\d+)\. (.*)$/)
+    if (om) { flushPara(); olist.push(om[2]); continue }
     if (line.trim() === '') { flushPara(); flushList(); continue }
     para.push(line)
   }

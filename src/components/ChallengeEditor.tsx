@@ -273,8 +273,11 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
   return (
     <div className="task-card">
       <div className="task-head">
+        <div className="task-tabs">
+          <span className="task-tab active">Challenge</span>
+          <span className="task-par">par {task.parSeconds}s · {task.command}</span>
+        </div>
         <div className="prompt" dangerouslySetInnerHTML={{ __html: inlinePrompt(task.prompt) }} />
-        <div className="task-num">{task.command ? <span className="keys">{task.command}</span> : null}</div>
       </div>
       <div className="editor-host" ref={host} />
       <div className="editor-statusbar">

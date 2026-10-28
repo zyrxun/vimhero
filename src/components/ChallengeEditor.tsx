@@ -117,6 +117,22 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
   const armedRef = useRef(false)
   // concrete (possibly generated) task state for this mount
   const resolved = useRef(resolveTask(task))
+  // rep-chaining: each solve spawns the next objective until REPS reached
+  const REPS = task.command === 'modes' || task.command === '<C-d>' ? 1 : 3
+  const repRef = useRef(0)
+  const [repDone, setRepDone] = useState(0)
+
+  const reroll = () => {
+    const view = viewRef.current
+    if (!view) return
+    resolved.current = resolveTask(task)
+    const t = resolved.current
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: t.buffer },
+      selection: { anchor: posToOffset(t.buffer, t.cursor) },
+      effects: setHl.of(hlDecoration(...Object.values(objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)) as [number, number])),
+    })
+  }
 
   const arm = () => {
     if (armedRef.current) return
@@ -127,12 +143,21 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     store.recordAttempt(task)
   }
 
-  const complete = (ms: number) => {
-    solvedRef.current = true
-    setSolved(true)
-    setElapsed(ms)
-    if (record) store.recordSolve(statSlug, statIdx, resolved.current, ms)
-    onSolve(ms)
+  /** One objective cleared. Chain the next rep, or finish the task on the last. */
+  const finishRep = (view: EditorView) => {
+    const ms = Date.now() - startRef.current
+    if (repRef.current + 1 >= REPS) {
+      solvedRef.current = true
+      setSolved(true)
+      setElapsed(ms)
+      if (record) store.recordSolve(statSlug, statIdx, resolved.current, ms)
+      onSolve(ms)
+      view.dispatch({ effects: setHl.of(null) })
+    } else {
+      repRef.current += 1
+      setRepDone(repRef.current)
+      reroll()
+    }
   }
 
   // scroll tasks (<C-d>) never change doc/selection — detect the key directly.
@@ -142,7 +167,8 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
       if (task.command !== '<C-d>' || solvedRef.current) return
       if (e.ctrlKey && e.key.toLowerCase() === 'd') {
         arm()
-        complete(Date.now() - startRef.current)
+        const view = viewRef.current
+        if (view) finishRep(view)
       }
     }
     const dom = host.current
@@ -165,9 +191,11 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     solvedRef.current = false
     everInsert.current = false
     armedRef.current = false
+    repRef.current = 0
     startRef.current = Date.now()
     setSolved(false)
     setArmed(false)
+    setRepDone(0)
     setShowSolution(false)
     setElapsed(0)
 
@@ -215,17 +243,17 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
             // no-op tasks (goal == start): the insert→normal round trip IS the task
             const noOp = normEqual(tt.buffer, tt.goalBuffer) && samePos(tt.cursor, tt.goalCursor)
             if (noOp) {
-              if (everInsert.current && m === 'normal') complete(Date.now() - startRef.current)
+              if (everInsert.current && m === 'normal') finishRep(u.view)
               return
             }
             // visual-LINE selections: the line span is the unit, cursor column is
             // meaningless — compare the selection's end line only
             if (v?.visualLine && v?.visualMode) {
-              if (cursor.line === tt.goalCursor.line && check.textOk) complete(Date.now() - startRef.current)
+              if (cursor.line === tt.goalCursor.line && check.textOk) finishRep(u.view)
               return
             }
             if (check.done) {
-              complete(Date.now() - startRef.current)
+              finishRep(u.view)
               u.view.dispatch({ effects: setHl.of(null) })
             }
           }),
@@ -254,8 +282,10 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
       effects: setHl.of(hlDecoration(...Object.values(objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)) as [number, number])),
     })
     solvedRef.current = false
+    repRef.current = 0
     startRef.current = Date.now()
     setSolved(false)
+    setRepDone(0)
     setElapsed(0)
     forceNormal(view)
     view.focus()
@@ -275,7 +305,9 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
       <div className="task-head">
         <div className="task-tabs">
           <span className="task-tab active">Challenge</span>
-          <span className="task-par">par {task.parSeconds}s · {task.command}</span>
+          <span className="task-par">
+            objective {Math.min(repDone + 1, REPS)}/{REPS} · par {task.parSeconds}s · {task.command}
+          </span>
         </div>
         <div className="prompt" dangerouslySetInnerHTML={{ __html: inlinePrompt(task.prompt) }} />
       </div>

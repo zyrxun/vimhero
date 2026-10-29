@@ -277,6 +277,8 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     })
     viewRef.current = view
     ;(window as unknown as Record<string, unknown>).__vh = view
+    const map = ((window as unknown as Record<string, unknown>).__vhMap ??= {}) as Record<string, EditorView>
+    map[editorKey] = view
     // fresh mount = unsolved: clears the finishRep re-entry guard
     solvedRef.current = false
     view.dispatch({ effects: setHl.of(hlDecoration(...Object.values(objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)) as [number, number])) })

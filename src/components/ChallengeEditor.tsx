@@ -316,6 +316,8 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     }
     const hlm = ((window as unknown as Record<string, unknown>).__hlMap ??= {}) as Record<string, { from: number; to: number }>
     hlm[editorKey] = objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)
+    const gmm = ((window as unknown as Record<string, unknown>).__genMap ??= {}) as Record<string, boolean>
+    gmm[editorKey] = !!task.gen
     // fresh mount = unsolved: clears the finishRep re-entry guard
     solvedRef.current = false
     view.dispatch({ effects: setHl.of(hlDecoration(...Object.values(objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)) as [number, number])) })

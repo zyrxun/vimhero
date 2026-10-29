@@ -70,7 +70,12 @@ function objectiveRange(buf: string, goal: string, goalCursor: { line: number; c
   let s = 0
   while (s < buf.length - p && s < goal.length - p && buf[buf.length - 1 - s] === goal[goal.length - 1 - s]) s++
   if (p >= buf.length - s) {
-    // pure insertion — highlight the insertion point character
+    // no interior change: insertion (goal grew) or trailing deletion (goal
+    // shrank — prefix+suffix consume everything, so length decides)
+    if (goal.length < buf.length) {
+      const at = Math.max(0, Math.min(buf.length - s - 1, buf.length - 1))
+      return { from: at, to: at + 1 }
+    }
     const at = Math.max(0, Math.min(p - 1, buf.length - 1))
     return { from: at, to: at + 1 }
   }

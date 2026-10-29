@@ -279,6 +279,14 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     ;(window as unknown as Record<string, unknown>).__vh = view
     const map = ((window as unknown as Record<string, unknown>).__vhMap ??= {}) as Record<string, EditorView>
     map[editorKey] = view
+    // test/debug hook: move to a position through the SAFE path (remount with
+    // carried cursor — plain selection dispatch desyncs the vim engine)
+    const w = window as unknown as Record<string, unknown>
+    w.__carrySet = (k: string, pos: { line: number; ch: number }) => {
+      if (k !== editorKey) return
+      carryRef.current = pos
+      setMountId((m) => m + 1)
+    }
     // fresh mount = unsolved: clears the finishRep re-entry guard
     solvedRef.current = false
     view.dispatch({ effects: setHl.of(hlDecoration(...Object.values(objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)) as [number, number])) })

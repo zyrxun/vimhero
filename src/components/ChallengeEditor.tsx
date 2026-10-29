@@ -125,6 +125,9 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
   const [mountId, setMountId] = useState(0)
   // cursor carried across reps (next objective appears where the user is)
   const carryRef = useRef<{ line: number; ch: number } | null>(null)
+  // when set, remounts keep the SAME resolved state (no re-roll) — used to
+  // re-position the cursor without changing the puzzle
+  const frozenRef = useRef(false)
 
   const reroll = () => {
     // fresh editor mount: guarantees the vim engine starts from the exact
@@ -211,8 +214,9 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
 
   useEffect(() => {
     // (re)mount the editor — fresh vim state, cursor exactly at task.cursor.
-    // Re-runs per rep: resolveTask rolls a fresh variant when the task has one.
-    resolved.current = resolveTask(task)
+    // Re-runs per rep: resolveTask rolls a fresh variant unless frozen (a
+    // re-position without changing the puzzle).
+    if (!frozenRef.current) resolved.current = resolveTask(task)
     const t = resolved.current
     // rep chains carry the cursor: next objective appears where the user is;
     // fresh task/reset starts at the task's own start position
@@ -279,14 +283,29 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     ;(window as unknown as Record<string, unknown>).__vh = view
     const map = ((window as unknown as Record<string, unknown>).__vhMap ??= {}) as Record<string, EditorView>
     map[editorKey] = view
-    // test/debug hook: move to a position through the SAFE path (remount with
-    // carried cursor — plain selection dispatch desyncs the vim engine)
+    // test/debug hooks: __carrySet re-positions through the SAFE path (remount —
+    // plain selection dispatch desyncs the vim engine); __hlMap exposes the
+    // objective highlight range so automation can navigate to the objective
     const w = window as unknown as Record<string, unknown>
-    w.__carrySet = (k: string, pos: { line: number; ch: number }) => {
+    w.__carrySet = (k: string, pos: { line?: number; ch?: number; offset?: number }) => {
       if (k !== editorKey) return
-      carryRef.current = pos
+      frozenRef.current = true
+      if (pos.offset != null) {
+        const lines = t.buffer.split('\n')
+        let off = Math.min(pos.offset, t.buffer.length)
+        let li = 0
+        while (li < lines.length && off > lines[li].length) {
+          off -= lines[li].length + 1
+          li++
+        }
+        carryRef.current = { line: li, ch: Math.max(0, off) }
+      } else {
+        carryRef.current = { line: pos.line ?? 0, ch: pos.ch ?? 0 }
+      }
       setMountId((m) => m + 1)
     }
+    const hlm = ((window as unknown as Record<string, unknown>).__hlMap ??= {}) as Record<string, { from: number; to: number }>
+    hlm[editorKey] = objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)
     // fresh mount = unsolved: clears the finishRep re-entry guard
     solvedRef.current = false
     view.dispatch({ effects: setHl.of(hlDecoration(...Object.values(objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)) as [number, number])) })
@@ -300,6 +319,7 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
   const reset = () => {
     // full restart: re-roll the variant, reset rep chain, timer restarts on
     // the next keypress (armed state is kept)
+    frozenRef.current = false
     resolved.current = resolveTask(task)
     solvedRef.current = false
     repRef.current = 0

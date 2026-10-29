@@ -69,15 +69,20 @@ function objectiveRange(buf: string, goal: string, goalCursor: { line: number; c
   while (p < buf.length && p < goal.length && buf[p] === goal[p]) p++
   let s = 0
   while (s < buf.length - p && s < goal.length - p && buf[buf.length - 1 - s] === goal[goal.length - 1 - s]) s++
+  if (goal.length < buf.length) {
+    // pure deletion — highlight exactly the characters that disappear
+    const from = Math.min(p, buf.length - 1)
+    const to = Math.max(from + 1, buf.length - s)
+    return { from, to }
+  }
   if (p >= buf.length - s) {
-    // no interior change: insertion (goal grew) or trailing deletion (goal
-    // shrank — prefix+suffix consume everything, so length decides)
-    if (goal.length < buf.length) {
-      const at = Math.max(0, Math.min(buf.length - s - 1, buf.length - 1))
-      return { from: at, to: at + 1 }
-    }
+    // pure insertion — highlight the insertion point character
     const at = Math.max(0, Math.min(p - 1, buf.length - 1))
     return { from: at, to: at + 1 }
+  }
+  if (goal.length === buf.length) {
+    // same-length substitution (r) — highlight the single changed char
+    return { from: p, to: p + 1 }
   }
   // expand the changed span to word-ish boundaries (never cross delimiters
   // like [ ] ( ) " — di[ must highlight the contents, not the brackets)

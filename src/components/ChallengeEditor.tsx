@@ -6,8 +6,8 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { StreamLanguage, indentUnit } from '@codemirror/language'
 import { javascript } from '@codemirror/legacy-modes/mode/javascript'
 import { vim, getCM } from '@replit/codemirror-vim'
-import { resolveTask } from '../lessons/types'
-import type { Task } from '../lessons/types'
+import { resolveTask, resolveChain } from '../lessons/types'
+import type { Task, ChainObjective } from '../lessons/types'
 import { checkTask } from '../engine'
 import { store } from '../store'
 
@@ -127,9 +127,17 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
   const [armed, setArmed] = useState(false)
   const armedRef = useRef(false)
   // concrete (possibly generated) task state for this mount
-  const resolved = useRef(resolveTask(task))
+  const resolved = useRef<ReturnType<typeof resolveTask> & { chainMode?: boolean }>(resolveTask(task))
+  // paragraph-chain state: one roll per session, deletions persist across reps
+  const chainRef = useRef<ChainObjective[] | null>(null)
+  // wrong-deletion guide: "press u to undo" until the buffer is restored
+  const guideRef = useRef(false)
+  const [guideUndo, setGuideUndo] = useState(false)
+  const [partLabel, setPartLabel] = useState('')
   // rep-chaining: each solve spawns the next objective until REPS reached
-  const REPS = task.command === 'modes' || task.command === '<C-d>' ? 1 : 3
+  const baseReps = task.command === 'modes' || task.command === '<C-d>' ? 1 : 3
+  const totalRepsRef = useRef(baseReps)
+  const [totalReps, setTotalReps] = useState(baseReps)
   const repRef = useRef(0)
   const [repDone, setRepDone] = useState(0)
   const [mountId, setMountId] = useState(0)
@@ -142,7 +150,9 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
   const reroll = () => {
     // fresh editor mount: guarantees the vim engine starts from the exact
     // task.cursor (in-place doc swaps desync cm6-vim's internal cursor).
-    // carry the cursor: the next objective appears where the user already is
+    // carry the cursor: the next objective appears where the user already is.
+    // A rep advance always re-resolves (clears the frozen carry-over).
+    frozenRef.current = false
     const v = viewRef.current
     if (v) {
       const s = v.state.selection.main
@@ -168,7 +178,7 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     if (solvedRef.current) return
     solvedRef.current = true
     const ms = Date.now() - startRef.current
-    if (repRef.current + 1 >= REPS) {
+    if (repRef.current + 1 >= totalRepsRef.current) {
       setSolved(true)
       setElapsed(ms)
       if (record) store.recordSolve(statSlug, statIdx, resolved.current, ms)
@@ -226,7 +236,24 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
     // (re)mount the editor — fresh vim state, cursor exactly at task.cursor.
     // Re-runs per rep: resolveTask rolls a fresh variant unless frozen (a
     // re-position without changing the puzzle).
-    if (!frozenRef.current) resolved.current = resolveTask(task)
+    if (!frozenRef.current) {
+      if (task.chain) {
+        // one roll per session: deletions persist across reps (Reset re-rolls)
+        if (!chainRef.current) chainRef.current = resolveChain(task.chain)
+        const obj = chainRef.current[Math.min(repRef.current, chainRef.current.length - 1)]
+        resolved.current = {
+          ...task, buffer: obj.running, cursor: obj.cursor,
+          goalBuffer: obj.expected, goalCursor: obj.cursor, chainMode: true,
+        }
+        totalRepsRef.current = chainRef.current.length
+        setTotalReps(chainRef.current.length)
+        setPartLabel(obj.label ?? '')
+        guideRef.current = false
+        setGuideUndo(false)
+      } else {
+        resolved.current = resolveTask(task)
+      }
+    }
     const t = resolved.current
     // rep chains carry the cursor: next objective appears where the user is;
     // fresh task/reset starts at the task's own start position
@@ -272,6 +299,24 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
             const cursor = { line: line.number - 1, ch: head - line.from }
             const check = checkTask(text, cursor, tt)
 
+            // paragraph-chain tasks: text-only completion (cursor is free —
+            // deletions persist, the user ends wherever). A change that is
+            // neither the intact buffer nor the expected result trips the
+            // "press u" guide until they undo back.
+            if (tt.chainMode) {
+              const obj = chainRef.current![Math.min(repRef.current, chainRef.current!.length - 1)]
+              if (normEqual(text, obj.expected)) {
+                finishRep(u.view)
+                return
+              }
+              const wrong = !normEqual(text, obj.running)
+              if (wrong !== guideRef.current) {
+                guideRef.current = wrong
+                setGuideUndo(wrong)
+              }
+              return
+            }
+
             // no-op tasks (goal == start): the insert→normal round trip IS the task
             const noOp = normEqual(tt.buffer, tt.goalBuffer) && samePos(tt.cursor, tt.goalCursor)
             if (noOp) {
@@ -315,12 +360,22 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
       setMountId((m) => m + 1)
     }
     const hlm = ((window as unknown as Record<string, unknown>).__hlMap ??= {}) as Record<string, { from: number; to: number }>
-    hlm[editorKey] = objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)
+    // chain tasks highlight the EXACT target region (the diff-based expansion
+    // can bleed across lines when a deletion includes its newline)
+    const hlRange = task.chain && chainRef.current
+      ? { from: chainRef.current[Math.min(repRef.current, chainRef.current.length - 1)].from,
+          to: chainRef.current[Math.min(repRef.current, chainRef.current.length - 1)].to }
+      : objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)
+    hlm[editorKey] = hlRange
     const gmm = ((window as unknown as Record<string, unknown>).__genMap ??= {}) as Record<string, boolean>
-    gmm[editorKey] = !!task.gen
+    gmm[editorKey] = !!(task.gen || task.chain)
+    // the CURRENT objective's intended start cursor (shuffle re-rolls shift
+    // line lengths — a start offset captured on an earlier roll misaligns)
+    const cmm = ((window as unknown as Record<string, unknown>).__cursorMap ??= {}) as Record<string, { line: number; ch: number }>
+    cmm[editorKey] = t.cursor
     // fresh mount = unsolved: clears the finishRep re-entry guard
     solvedRef.current = false
-    view.dispatch({ effects: setHl.of(hlDecoration(...Object.values(objectiveRange(t.buffer, t.goalBuffer, t.goalCursor)) as [number, number])) })
+    view.dispatch({ effects: setHl.of(hlDecoration(...Object.values(hlRange) as [number, number])) })
     view.focus()
     forceNormal(view)
     return () => { view.destroy(); viewRef.current = null }
@@ -329,9 +384,12 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
   const secs = (ms: number) => (ms / 1000).toFixed(1) + 's'
 
   const reset = () => {
-    // full restart: re-roll the variant, reset rep chain, timer restarts on
-    // the next keypress (armed state is kept)
+    // full restart: re-roll the variant (chain: fresh paragraph), reset rep
+    // chain, timer restarts on the next keypress (armed state is kept)
     frozenRef.current = false
+    chainRef.current = null
+    guideRef.current = false
+    setGuideUndo(false)
     resolved.current = resolveTask(task)
     solvedRef.current = false
     repRef.current = 0
@@ -358,7 +416,7 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
         <div className="task-tabs">
           <span className="task-tab active">Challenge</span>
           <span className="task-par">
-            objective {Math.min(repDone + 1, REPS)}/{REPS} · par {task.parSeconds}s · {task.command}
+            objective {Math.min(repDone + 1, totalReps)}/{totalReps} · par {task.parSeconds}s · {task.command}
           </span>
         </div>
         <div className="prompt" dangerouslySetInnerHTML={{ __html: inlinePrompt(task.prompt) }} />
@@ -370,6 +428,11 @@ export function ChallengeEditor({ task, editorKey, onSolve, record }: Props) {
         </span>
         {!armed && !solved && (
           <span style={{ color: 'var(--dim)', fontSize: 12.5 }}>timer starts on your first keypress</span>
+        )}
+        {(guideUndo || partLabel) && !solved && (
+          <span className={`part-hint ${guideUndo ? 'warn' : ''}`}>
+            {guideUndo ? '↩ deleted the wrong part — press u to undo' : partLabel}
+          </span>
         )}
         <span className="timer" style={over ? { color: 'var(--warn)' } : solved ? { color: 'var(--accent)' } : undefined}>
           {secs(elapsed)} <span style={{ color: 'var(--dim)' }}>/ par {task.parSeconds}s</span>

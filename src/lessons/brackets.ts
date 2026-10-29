@@ -1,5 +1,5 @@
 import type { Lesson } from './types'
-import { pick, pickArgs, pickIdent, pickString } from './variants.ts'
+import { pick, pickArgs, pickDistinct, pickIdent, pickNum, pickString } from './variants.ts'
 
 // Section 5 — Text Objects: Bracket Pairs. Original text and snippets.
 
@@ -15,15 +15,25 @@ export const brackets: Lesson[] = [
 So \`di(\` = delete what's inside the parens; \`da(\` = delete the parens too. Objects exist for brackets, quotes, words, paragraphs. This section: brackets \`(\`, \`{\`, \`[\`.`,
     tasks: [
       {
-        prompt: 'Warm-up: delete everything inside the parens with `di(` (cursor is inside).',
-        gen: () => {
-          const args = pickArgs()
-          return {
-            buffer: `call(${args})`,
-            cursor: { line: 0, ch: 6 },
-            goalBuffer: 'call()',
-            goalCursor: { line: 0, ch: 5 },
-          }
+        prompt: 'Delete the contents of every highlighted call with `di(` — three to go, deletions stay deleted.',
+        chain: {
+          genBuffer: () => {
+            const [a1, a2, a3] = pickDistinct(3, pickArgs)
+            const fns = [pickIdent(), pickIdent(), pickIdent(), pickIdent(), pickIdent()]
+            return [
+              `run(${a1})`,
+              `load(${a2})`,
+              `const ${fns[0]} = ${pickNum()}`,
+              `send(${a3})`,
+              `const ${fns[1]} = pair(${fns[2]}, ${pickNum()})`,
+              `const parsed = join(${fns[3]}, ${fns[4]})`,
+            ].join('\n')
+          },
+          parts: (buf) => {
+            const targets = buf.split('\n').filter((l) => /^[a-z]+\((?!$)/.test(l)).map((l) => l.slice(l.indexOf('(') + 1, l.indexOf(')')))
+            if (targets.length !== 3) throw new Error(`di( chain: expected 3 call targets, got ${targets.length}`)
+            return targets.map((a) => ({ find: a, label: 'empty the highlighted call with di(' }))
+          },
         },
         solution: 'di(',
         command: 'di(',

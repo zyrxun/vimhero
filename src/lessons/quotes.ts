@@ -1,5 +1,5 @@
 import type { Lesson } from './types'
-import { pickString } from './variants.ts'
+import { pickDistinct, pickIdent, pickNum, pickString } from './variants.ts'
 
 // Section 6 — Text Objects: Quotes. Original text and snippets.
 
@@ -13,15 +13,24 @@ export const quotes: Lesson[] = [
 Classic use: emptying a string before retyping it.`,
     tasks: [
       {
-        prompt: 'Empty the string with `di"` (cursor anywhere on the line).',
-        gen: () => {
-          const s = pickString()
-          return {
-            buffer: `const env = "${s}"`,
-            cursor: { line: 0, ch: 6 },
-            goalBuffer: 'const env = ""',
-            goalCursor: { line: 0, ch: 13 },
-          }
+        prompt: 'Empty every highlighted string with `di"` — three to go, deletions stay deleted.',
+        chain: {
+          genBuffer: () => {
+            const [s1, s2, s3] = pickDistinct(3, pickString)
+            const keys = [pickIdent(), pickIdent(), pickIdent(), pickIdent(), pickIdent()]
+            return [
+              `const ${keys[0]} = "${s1}"`,
+              `const ${keys[1]} = "${s2}"`,
+              `const ${keys[2]} = ${pickNum()}`,
+              `const ${keys[3]} = "${s3}"`,
+              `const ${keys[4]} = ${pickNum()}`,
+            ].join('\n')
+          },
+          parts: (buf) => {
+            const targets = buf.split('\n').filter((l) => l.includes('"')).map((l) => l.slice(l.indexOf('"') + 1, l.lastIndexOf('"')))
+            if (targets.length !== 3) throw new Error(`di" chain: expected 3 strings, got ${targets.length}`)
+            return targets.map((s) => ({ find: s, label: `empty the "${s}" string with di"` }))
+          },
         },
         solution: 'di"',
         command: 'di"',

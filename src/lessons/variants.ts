@@ -39,6 +39,16 @@ export function pickLetter(): string {
   return 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]
 }
 
+/** n distinct draws — chain targets must never repeat inside one buffer. */
+export function pickDistinct<T>(n: number, draw: () => T): T[] {
+  const out: T[] = []
+  while (out.length < n) {
+    const v = draw()
+    if (!out.includes(v)) out.push(v)
+  }
+  return out
+}
+
 // ---------- generic token shuffle for static tasks ----------
 
 const STOPWORDS = new Set([

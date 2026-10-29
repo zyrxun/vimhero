@@ -1,5 +1,5 @@
 import type { Lesson } from './types'
-import { pick, pickIdent, pickNum, pickWord } from './variants.ts'
+import { pick, pickDistinct, pickIdent, pickNum, pickWord } from './variants.ts'
 
 // Section 2 — Basic Operators. Original text and snippets.
 
@@ -77,28 +77,54 @@ Finish the rename: cursor is on \`slow\`, change it to \`fast\`.`,
 Both keep you in normal mode. Remove the dead line entirely with \`dd\`.`,
     tasks: [
       {
-        prompt: 'Delete the middle line with `dd` (cursor starts on it).',
-        gen: () => {
-          const a = pickIdent()
-          const b = pickIdent()
-          return {
-            buffer: `const ${a} = 1\nconst TODO = null\nconst ${b} = 2`,
-            cursor: { line: 1, ch: 0 },
-            goalBuffer: `const ${a} = 1\nconst ${b} = 2`,
-            goalCursor: { line: 1, ch: 0 },
-          }
+        prompt: 'Delete every highlighted dead line with `dd` — three to go, deletions stay deleted.',
+        chain: {
+          genBuffer: () => {
+            const [w1, w2, w3] = pickDistinct(3, pickWord)
+            const ids = [pickIdent(), pickIdent(), pickIdent()]
+            return [
+              `// ${pick(['wiring', 'runtime', 'module'])} — remove the dead lines`,
+              `const ${ids[0]} = ${pickNum()}`,
+              `// TODO: debug ${w1}`,
+              `const ${ids[1]} = ${pickNum()}`,
+              `// FIXME: stale ${w2}`,
+              `const DEAD_${w3} = null`,
+              `const ${ids[2]} = ${pickNum()}`,
+              `export { ${ids[0]}, ${ids[1]}, ${ids[2]} }`,
+            ].join('\n')
+          },
+          parts: (buf) => {
+            const targets = buf.split('\n').filter((l) => l.includes('TODO') || l.includes('FIXME') || l.startsWith('const DEAD'))
+            if (targets.length !== 3) throw new Error(`dd chain: expected 3 junk lines, got ${targets.length}`)
+            return targets.map((t) => ({ find: t + '\n', label: 'delete the dead line with dd' }))
+          },
         },
         solution: 'dd',
         command: 'dd',
         parSeconds: 6,
       },
       {
-        shuffle: true,
-        prompt: 'Cut the trailing comment off with `D` (cursor is on the `/`).',
-        buffer: 'export default App // remove this',
-        cursor: { line: 0, ch: 19 },
-        goalBuffer: 'export default App',
-        goalCursor: { line: 0, ch: 17 },
+        prompt: 'Empty each highlighted comment line with `D` (cursor at line start) — deletions stay deleted.',
+        chain: {
+          genBuffer: () => {
+            const [w1, w2, w3] = pickDistinct(3, pickWord)
+            const ids = [pickIdent(), pickIdent(), pickIdent()]
+            return [
+              `const ${ids[0]} = ${pickNum()}`,
+              `// pending: ${w1} checks`,
+              `const ${ids[1]} = ${pickNum()}`,
+              `// pending: ${w2} rollout`,
+              `const ${ids[2]} = ${pickNum()}`,
+              `// pending: ${w3} cleanup`,
+              `export default ${ids[0]}`,
+            ].join('\n')
+          },
+          parts: (buf) => {
+            const targets = buf.split('\n').filter((l) => l.includes('pending:'))
+            if (targets.length !== 3) throw new Error(`D chain: expected 3 comment lines, got ${targets.length}`)
+            return targets.map((t) => ({ find: t, label: 'wipe the comment line with D' }))
+          },
+        },
         solution: 'D',
         command: 'D',
         parSeconds: 6,
@@ -114,27 +140,64 @@ Both keep you in normal mode. Remove the dead line entirely with \`dd\`.`,
 These combos are why \`j\`/\`k\` live on home row. Clear the block.`,
     tasks: [
       {
-        prompt: 'Delete this line and the one below it with `dj`.',
-        buffer: 'keep me\nconst x = TODO1\nconst y = TODO2\nkeep me too',
-        cursor: { line: 1, ch: 0 },
-        goalBuffer: 'keep me\nkeep me too',
-        goalCursor: { line: 1, ch: 0 },
+        prompt: 'Delete each highlighted two-line block with `dj` — deletions stay deleted.',
+        chain: {
+          genBuffer: () => {
+            const [w1, w2, w3] = pickDistinct(3, pickWord)
+            const ids = [pickIdent(), pickIdent(), pickIdent()]
+            return [
+              `// batch run — clear the stale pairs`,
+              `// stale ${w1} cache`,
+              `const dropped_${w1} = true`,
+              `const ${ids[0]} = ${pickNum()}`,
+              `// stale ${w2} index`,
+              `const dropped_${w2} = true`,
+              `const ${ids[1]} = ${pickNum()}`,
+              `// stale ${w3} queue`,
+              `const dropped_${w3} = true`,
+              `export { ${ids[0]}, ${ids[1]} }`,
+            ].join('\n')
+          },
+          parts: (buf) => {
+            const targets = buf.split('\n').filter((l) => l.includes('// stale '))
+            if (targets.length !== 3) throw new Error(`dj chain: expected 3 stale pairs, got ${targets.length}`)
+            return targets.map((t) => {
+              const lines = buf.split('\n')
+              const i = lines.indexOf(t)
+              return { find: t + '\n' + lines[i + 1] + '\n', label: 'delete the stale pair with dj' }
+            })
+          },
+        },
         solution: 'dj',
         command: 'dj',
         parSeconds: 8,
       },
       {
-        prompt: 'Delete three debug lines with `3dd` (cursor is on the first).',
-        gen: () => {
-          const w1 = pickWord()
-          const w2 = pickWord()
-          const w3 = pickWord()
-          return {
-            buffer: `header\ndebug ${w1}\ndebug ${w2}\ndebug ${w3}\nfooter`,
-            cursor: { line: 1, ch: 0 },
-            goalBuffer: 'header\nfooter',
-            goalCursor: { line: 1, ch: 0 },
-          }
+        prompt: 'Delete each highlighted three-line debug block with `3dd` — deletions stay deleted.',
+        chain: {
+          genBuffer: () => {
+            const [w1, w2, w3] = pickDistinct(3, pickWord)
+            const ids = [pickIdent(), pickIdent()]
+            const block = (w: string, i: number) => [`// debug ${w} start`, `console.log("${w}", ${ids[i % 2]})`, `// debug ${w} end`]
+            return [
+              `// nightly job — strip the debug blocks`,
+              ...block(w1, 0),
+              `const ${ids[0]} = ${pickNum()}`,
+              ...block(w2, 1),
+              `const ${ids[1]} = ${pickNum()}`,
+              ...block(w3, 0),
+              `export default ${ids[0]}`,
+            ].join('\n')
+          },
+          parts: (buf) => {
+            const targets = buf.split('\n').filter((l) => l.includes('debug ') && l.includes('start'))
+            if (targets.length !== 3) throw new Error(`3dd chain: expected 3 debug blocks, got ${targets.length}`)
+            return targets.map((t) => {
+              const lines = buf.split('\n')
+              const i = lines.indexOf(t)
+              return { find: [lines[i], lines[i + 1], lines[i + 2]].join('\n') + '\n', label: 'delete the debug block with 3dd' }
+            })
+          },
         },
         solution: '3dd',
         command: '3dd',

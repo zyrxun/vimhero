@@ -1,5 +1,5 @@
 import type { Lesson } from './types'
-import { pickIdent, pickWord } from './variants.ts'
+import { pickDistinct, pickIdent, pickWord } from './variants.ts'
 
 // Section 7 — Text Objects: Words & Paragraphs. Original text and snippets.
 
@@ -13,16 +13,22 @@ export const wordsParagraphs: Lesson[] = [
 Note the asymmetry: on the space before a word, \`diw\` still grabs the word, not the space. Kill the typo word.`,
     tasks: [
       {
-        prompt: 'Delete the misspelled word with `diw` (cursor is inside it).',
-        gen: () => {
-          const w = pickWord()
-          const buf = `// note: ${w} is misspelled`
-          return {
-            buffer: buf,
-            cursor: { line: 0, ch: 9 },
-            goalBuffer: '// note:  is misspelled',
-            goalCursor: { line: 0, ch: 8 },
-          }
+        prompt: 'Delete every highlighted word with `diw` — three to go, deletions stay deleted.',
+        chain: {
+          genBuffer: () => {
+            const [w1, w2, w3] = pickDistinct(3, pickWord)
+            const ids = [pickIdent(), pickIdent(), pickIdent()]
+            return [
+              `// review notes: the ${w1} flag and the ${ids[0]} bucket`,
+              `// second pass: mark the ${w2} rows and audit ${ids[1]}`,
+              `// final pass: clear the ${w3} queue, then sync ${ids[2]}`,
+            ].join('\n')
+          },
+          parts: (buf) => {
+            const words = buf.split(/\s+/).filter((w) => ['broken', 'stale', 'cached', 'dirty', 'empty', 'offset', 'marker', 'sample', 'draft', 'legacy'].includes(w))
+            if (words.length !== 3) throw new Error(`diw chain: expected 3 target words, got ${words.length}`)
+            return words.map((w) => ({ find: w, label: `delete the word "${w}" with diw` }))
+          },
         },
         solution: 'diw',
         command: 'diw',
@@ -39,16 +45,21 @@ Note the asymmetry: on the space before a word, \`diw\` still grabs the word, no
 This is the one for removing a word from a sentence.`,
     tasks: [
       {
-        prompt: 'Remove the middle word cleanly with `daw` (no double spaces left behind).',
-        gen: () => {
-          const w = pickWord()
-          const buf = `this is ${w} important`
-          return {
-            buffer: buf,
-            cursor: { line: 0, ch: 8 },
-            goalBuffer: 'this is important',
-            goalCursor: { line: 0, ch: 7 },
-          }
+        prompt: 'Remove every highlighted word cleanly with `daw` — no double spaces left, deletions stay deleted.',
+        chain: {
+          genBuffer: () => {
+            const [w1, w2, w3] = pickDistinct(3, pickWord)
+            return [
+              `this run treats the ${w1} flag as required`,
+              `the scheduler skips the ${w2} rows by default`,
+              `operators agree the ${w3} queue drains last`,
+            ].join('\n')
+          },
+          parts: (buf) => {
+            const words = buf.split(/\s+/).filter((w) => ['broken', 'stale', 'cached', 'dirty', 'empty', 'offset', 'marker', 'sample', 'draft', 'legacy'].includes(w))
+            if (words.length !== 3) throw new Error(`daw chain: expected 3 target words, got ${words.length}`)
+            return words.map((w) => ({ find: w + ' ', label: `remove the word "${w}" (and its space) with daw` }))
+          },
         },
         solution: 'daw',
         command: 'daw',
@@ -109,11 +120,41 @@ Rename the variable.`,
 Handy for clearing a docstring or a block of config.`,
     tasks: [
       {
-        prompt: 'Clear the middle paragraph with `dip` — the surrounding blank lines stay.',
-        buffer: 'alpha\n\nscratch line one\nscratch line two\n\nomega',
-        cursor: { line: 2, ch: 0 },
-        goalBuffer: 'alpha\n\n\nomega',
-        goalCursor: { line: 2, ch: 0 },
+        prompt: 'Clear each highlighted paragraph with `dip` — the blank lines stay, deletions stay deleted.',
+        chain: {
+          genBuffer: () => {
+            const [w1, w2, w3] = pickDistinct(3, pickWord)
+            const ids = [pickIdent(), pickIdent(), pickIdent(), pickIdent()]
+            return [
+              `keep: this block stays`,
+              ``,
+              `scratch ${w1} notes here`,
+              `more scratch ${ids[0]} lines`,
+              ``,
+              `keep: this block survives too`,
+              ``,
+              `scratch ${w2} remarks below`,
+              `extra scratch ${ids[1]} detail`,
+              ``,
+              `keep: untouched block`,
+              ``,
+              `scratch ${w3} leftovers`,
+              `last scratch ${ids[2]} trailing`,
+              ``,
+              `keep: ending block ${ids[3]}`,
+            ].join('\n')
+          },
+          parts: (buf) => {
+            const targets = buf.split('\n').filter((l) => l.startsWith('scratch ') || l.startsWith('extra scratch ') || l.startsWith('more scratch ') || l.startsWith('last scratch '))
+            if (targets.length !== 6) throw new Error(`dip chain: expected 6 scratch lines, got ${targets.length}`)
+            const out = []
+            for (let i = 0; i < targets.length; i += 2) {
+              // dip consumes the paragraph text AND one trailing newline
+              out.push({ find: targets[i] + '\n' + targets[i + 1] + '\n', label: 'clear the scratch paragraph with dip' })
+            }
+            return out
+          },
+        },
         solution: 'dip',
         command: 'dip',
         parSeconds: 10,
